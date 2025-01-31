@@ -1,0 +1,295 @@
+.upload-header {
+  margin-bottom: 2rem;
+  text-align: center;
+  font-size: 1.7rem; /* Reduced text size */
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.upload-section-container {
+  width: 100%;
+}
+
+.upload-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  background-color: rgba(56, 50, 90, 1); 
+  border-radius: 20px;
+  padding: 20px 50px; 
+  margin: 0 auto;
+  z-index: 1;
+}
+
+.upload-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  border: 1px solid rgb(226, 219, 219);
+  cursor: pointer;
+  transition: background 0.5s;
+  background: rgba(2, 2, 2, 1);
+}
+
+.upload-btn:hover {
+  background: rgba(12, 71, 190, 0.5);
+}
+
+.url-icon,
+.file-icon,
+.drive-icon {
+  display: block;
+  width: 30px;
+  height: 30px;
+  margin: 0 auto;
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+.processing-icon {
+  width: 30px;
+  height: 30px;
+  display: inline-block;
+  vertical-align: middle;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+
+.result-image {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.result-image img {
+  max-width: 100%;
+  height: auto;
+  border: 2px solid #ffffff;
+  border-radius: 10px;
+}
+
+.result-images {
+  display: flex;
+  justify-content: space-around; /* Ensure images are side by side */
+  gap: 2rem;
+  margin-top: 2rem;
+  width: 100%; /* Ensure the container takes full width */
+}
+
+.image-container {
+  flex: 1;
+  text-align: center;
+  max-width: 45%; /* Ensure each image container takes up to 45% of the width */
+}
+
+.image-container img {
+  width: 100%; /* Ensure images take full width of their container */
+  height: auto;
+  border: 2px solid #ffffff;
+  border-radius: 10px;
+}
+
+.processing-page {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.processing-info {
+  color: #ffffff;
+  padding: 1rem;
+  font-size: 1rem;
+}
+
+.processing-info p {
+  margin: 0.5rem 0;
+}
+
+.processing-info a {
+  color: #1e90ff;
+  text-decoration: none;
+}
+
+.processing-info a:hover {
+  text-decoration: underline;
+}
+
+.result-page {
+  text-align: center;
+  margin-top: 2rem;
+  width: 100%; /* Ensure the container takes full width */
+  display: flex;
+  flex-direction: column; /* Ensure elements are stacked vertically */
+  align-items: center;
+  overflow: hidden; /* Prevent overflow */
+  height: 100vh; /* Ensure it takes the full viewport height */
+}
+
+.dropdown-container {
+  display: flex;
+  align-items: center;
+}
+
+.icon-container {
+  margin-right: 0.5rem;
+  width: 30px;
+  height: 30px;
+  border-radius: 12px;
+  cursor: pointer;
+  background: rgba(56, 50, 90, 1); 
+  display: flex;
+  justify-content: center;
+}
+
+
+.processing-icon-container {
+  margin:auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 12px;
+  background: rgb(71, 66, 98); 
+  justify-content: center;
+}
+
+.dropdown-icon {
+  margin-left: .5rem;
+}
+
+.dropdown-container label {
+  margin-right: 1rem;
+  font-size: 1rem;
+  color: #ffffff;
+}
+
+.dropdown-container select {
+  padding: 0.5rem;
+  font-size: 1rem;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  background-color: #38325a; /* Match the background color */
+  color: #ffffff; /* White text color */
+}
+
+.dropdown-container img {
+  margin-right: 0.5rem;
+}
+
+.space-between {
+  margin-top: 2rem; /* Adjust the margin as needed */
+}
+
+.more-btn {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  color: #ffffff;
+  background-color: rgba(56, 50, 90, 1);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.more-btn:hover {
+  background-color: rgba(12, 71, 190, 0.5);
+}
+
+.more-btn .arrow {
+  margin-left: 0.5rem;
+}
+
+.more-window {
+  position: relative; 
+  margin-top: 1rem;
+  width: 100%;
+  height: 200px; /* Fixed height */
+  background-color: #1b1924; 
+  border: 2px solid #ffffff;
+  border-radius: 10px;
+  overflow-y: auto; 
+}
+
+.close-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px; /* Change from right to left */
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.expand-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px; /* Position on the right */
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.expanded {
+  position: fixed; 
+  width: 98vw; /* Increase width */
+  height: 160vw; /* Increase height */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%); 
+  margin: 0;
+  border-radius: 10px;
+  z-index: 1001; /* Ensure it is above the blurred background */
+  background-color: rgba(27, 25, 36, 0.95); 
+  pointer-events: auto; /* Enable interactions */
+}
+
+.blurred {
+  filter: blur(5px); /* Apply blur effect */
+  pointer-events: none; /* Disable interactions */
+}
+
+.blurred-background {
+  filter: blur(5px); /* Apply blur effect */
+}
+
+.intermediate-images img {
+  width: 100%;
+  height: auto;
+  margin-bottom: 1rem;
+}
+
+.home-page {
+  overflow-y: auto;
+  max-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.four-img-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  overflow-y: auto; /* Make the container scrollable */
+  max-height: calc(100vh - 150px); 
+  margin-top: 60px; 
+  padding-top: 0; 
+  box-sizing: border-box; 
+}
+
+body, html {
+  overflow: hidden; 
+  margin: 0; 
+  padding: 0; 
+  height: 100%;
+}
+
+
+
+

@@ -1,0 +1,48 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+}
+
+.App {
+  background: linear-gradient(100deg, #38325a 0%, #38325a 1%, #070513 48%);
+  min-height: 100vh;
+  color: white;
+  margin: 0px auto;
+  border-radius: 50px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.main-content {
+  padding: 2rem;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  overflow: hidden; /* Hide overflow to prevent overlap */
+}
+
+.navbar {
+  background: rgba(255, 255, 255, 0.05);
+  position: fixed; /* Fix the navbar at the top */
+  top: 0;
+  width: 100%;
+  z-index: 1000; /* Ensure it stays above other elements */
+  margin: 0 auto;
+}
+
+.logo {
+  color: white;
+}
+
+.nav-links a {
+  color: white;
+}
