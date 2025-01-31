@@ -107,10 +107,10 @@ const HomePage = () => {
   const handleExpandClick = (type) => {
     if (type === 'original') {
       setIsExpandedOriginal(!isExpandedOriginal);
-      document.querySelector('.result-page').classList.toggle('blurred-background', !isExpandedOriginal);
+      document.querySelector('.result-page').classList.toggle('blurred-border', !isExpandedOriginal);
     } else if (type === 'annotated') {
       setIsExpandedAnnotated(!isExpandedAnnotated);
-      document.querySelector('.result-page').classList.toggle('blurred-background', !isExpandedAnnotated);
+      document.querySelector('.result-page').classList.toggle('blurred-border', !isExpandedAnnotated);
     }
   };
 

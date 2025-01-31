@@ -234,26 +234,22 @@
 
 .expanded {
   position: fixed; 
-  width: 98vw; /* Increase width */
-  height: 160vw; /* Increase height */
+  width: 98vw; 
+  height: 160vw; 
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%); 
   margin: 0;
-  border-radius: 10px;
-  z-index: 1001; /* Ensure it is above the blurred background */
-  background-color: rgba(27, 25, 36, 0.95); 
-  pointer-events: auto; /* Enable interactions */
+  z-index: 1001; 
+  pointer-events: auto; 
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); 
+  border-left: 500px solid rgba(80, 67, 156, 0.3); 
+  border-right: 500px solid rgba(80, 67, 156, 0.3); 
+  border-top: 50px solid rgba(80, 67, 156, 0.3); 
+  border-bottom: 50px solid rgba(80, 67, 156, 0.3); 
+  backdrop-filter: blur(50px); 
 }
 
-.blurred {
-  filter: blur(5px); /* Apply blur effect */
-  pointer-events: none; /* Disable interactions */
-}
-
-.blurred-background {
-  filter: blur(5px); /* Apply blur effect */
-}
 
 .intermediate-images img {
   width: 100%;
