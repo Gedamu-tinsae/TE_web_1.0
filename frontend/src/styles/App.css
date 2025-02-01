@@ -15,19 +15,16 @@ body {
 }
 
 .main-content {
-  padding: 2rem;
   width: 100%;
-  margin: 0 auto;
+  margin: 0 auto; 
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  overflow: hidden; /* Hide overflow to prevent overlap */
+  height: 100vh;
+  /* min-height: calc(100vh - 0rem);  */
+  position: relative; /* Change to relative positioning */
+  overflow:scroll;
 }
 
 .navbar {
@@ -36,7 +33,6 @@ body {
   top: 0;
   width: 100%;
   z-index: 1000; /* Ensure it stays above other elements */
-  margin: 0 auto;
 }
 
 .logo {

@@ -328,6 +328,17 @@ const HomePage = () => {
             <span className="tooltip">Real-Time Detection</span>
           </button>
         </div>
+        <div className="dropdown-container"> {/* Add dropdown container */}
+          <div className="icon-container" onClick={handleReloadClick}>
+            <img src={reloadIcon} alt="Option Icon" className="dropdown-icon" />
+          </div>
+          <select id="options" value={selectedOption} onChange={handleOptionChange}>
+            <option value=""></option>
+            <option value="option1">Option 1</option>
+            <option value="option2">Option 2</option>
+            <option value="option3">Option 3</option>
+          </select>
+        </div>
       </div>
     </div>
   );
