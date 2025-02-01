@@ -14,7 +14,7 @@
   display: flex;
   gap: 1rem;
   justify-content: center;
-  background-color: rgba(56, 50, 90, 1); 
+  background-color: #38325a; 
   border-radius: 20px;
   padding: 20px 50px; 
   margin: 0 auto;
@@ -22,6 +22,7 @@
 }
 
 .upload-btn {
+  position: relative; /* Add position relative for tooltip */
   width: 60px;
   height: 60px;
   border-radius: 12px;
@@ -35,9 +36,44 @@
   background: rgba(12, 71, 190, 0.5);
 }
 
+.upload-btn .tooltip {
+  visibility: hidden;
+  width: 120px;
+  background-color: #38325a;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 5px;
+  position: absolute;
+  z-index: 1;
+  bottom: 150%; /* Position the tooltip below the button */
+  left: 50%;
+  margin-left: -60px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.upload-btn .tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%; /* Arrow at the top of the tooltip */
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #555 transparent transparent transparent;
+}
+
+.upload-btn:hover .tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
 .url-icon,
 .file-icon,
-.drive-icon {
+.drive-icon,
+.video-icon,
+.real-time-icon { /* Add real-time-icon class */
   display: block;
   width: 30px;
   height: 30px;
@@ -56,7 +92,21 @@
   justify-content: center;
 }
 
+.blank-canvas,
+.image-container img,
+.image-container video { 
+  width: 100%; 
+  height: auto;
+  border: 2px solid #ffffff;
+  border-radius: 10px;
+  background-color: #1b1924; /* Match the background color */
+}
 
+#originalMedia,
+#annotatedMedia {
+  width: 100%;
+  height: auto;
+}
 
 .result-image {
   text-align: center;
@@ -82,13 +132,6 @@
   flex: 1;
   text-align: center;
   max-width: 45%; /* Ensure each image container takes up to 45% of the width */
-}
-
-.image-container img {
-  width: 100%; /* Ensure images take full width of their container */
-  height: auto;
-  border: 2px solid #ffffff;
-  border-radius: 10px;
 }
 
 .processing-page {
@@ -250,6 +293,21 @@
   backdrop-filter: blur(50px); 
 }
 
+.play-btn {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  color: #ffffff;
+  background-color: rgba(56, 50, 90, 1);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.play-btn:hover {
+  background-color: rgba(12, 71, 190, 0.5);
+}
 
 .intermediate-images img {
   width: 100%;

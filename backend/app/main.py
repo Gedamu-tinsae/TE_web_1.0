@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.endpoints import upload
+from app.api.endpoints import upload, upload_video
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
@@ -15,6 +15,7 @@ app.add_middleware(
 )
 
 app.include_router(upload.router, prefix="/api")
+app.include_router(upload_video.router, prefix="/api")
 app.mount("/results", StaticFiles(directory="results"), name="results")
 
 @app.get("/")
