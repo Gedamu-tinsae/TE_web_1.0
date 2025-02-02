@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.endpoints import upload, upload_video
+from app.api.endpoints import upload, upload_video, upload_tensorflow
 from fastapi.staticfiles import StaticFiles
+import uvicorn
 
 app = FastAPI()
 
@@ -16,13 +17,12 @@ app.add_middleware(
 
 app.include_router(upload.router, prefix="/api")
 app.include_router(upload_video.router, prefix="/api")
+app.include_router(upload_tensorflow.router, prefix="/api")  # Include new router
 app.mount("/results", StaticFiles(directory="results"), name="results")
 
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Car Plate Extractor API"}
-
-import uvicorn
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

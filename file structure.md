@@ -9,7 +9,8 @@
 │   ├── assets/
 │   │   ├── video-icon.png
 │   │   ├── file-icon.png
-│   │   ├── drive-icon.png
+│   │   ├── realtime-icon.png
+│   │   ├── processing-icon.png
 │   │   ├── reload-icon.png
 │   │   └── expand-icon.png
 │   ├── components/
@@ -33,23 +34,24 @@
 
 ## Backend
 `backend/`
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── endpoints/
-│   │   │   │   ├── upload.py
-│   │   │   │   ├── example.json
-│   │   │   │   └── ...
-│   │   ├── models/
-│   │   │   ├── opencv_tensorflow.py
+├── app/
+│   ├── api/
+│   │   ├── endpoints/
+│   │   │   ├── upload.py
+│   │   │   ├── upload_video.py
+│   │   │   ├── upload_tensorflow.py 
+│   │   │   ├── example.json
 │   │   │   └── ...
-│   │   ├── main.py
-│   │   └── ...
-│   ├── results/
-│   │   └── ... (generated result images)
-│   ├── uploads/
-│   │   └── ... (uploaded images)
+│   ├── models/
+│   │   ├── opencv_tensorflow.py
+│   │   ├── tensorflow_model.py  
+│   │   └── saved_model.pb
+│   ├── main.py
 │   └── ...
-├── .gitignore
+├── results/
+│   └── ... (generated result images and videos)
+├── uploads/
+│   └── ... (uploaded images)
 └── ...
 
 ## Root

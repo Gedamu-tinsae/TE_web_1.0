@@ -23,6 +23,7 @@ const HomePage = () => {
   const [timer, setTimer] = useState(0);
   const [milliseconds, setMilliseconds] = useState(0);
   const [finalTime, setFinalTime] = useState(null);
+  const [processingMethod, setProcessingMethod] = useState('opencv'); // New state for processing method
   const startTimeRef = useRef(null);
 
   useEffect(() => {
@@ -65,7 +66,10 @@ const HomePage = () => {
         setIsUploaded(true);
 
         try {
-          const response = await fetch(`http://172.20.10.10:8000/api/upload${type === 'video' ? '_video' : ''}`, {
+          const endpoint = type === 'video' 
+            ? (processingMethod === 'tensorflow' ? 'upload_video_tensorflow' : 'upload_video') 
+            : (processingMethod === 'tensorflow' ? 'upload_image_tensorflow' : 'upload');
+          const response = await fetch(`http://172.20.10.10:8000/api/${endpoint}`, {
             method: 'POST',
             body: formData,
           });
@@ -88,6 +92,7 @@ const HomePage = () => {
 
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
+    setProcessingMethod(event.target.value); // Set processing method based on dropdown selection
   };
 
   const handleReloadClick = async () => {
@@ -99,7 +104,10 @@ const HomePage = () => {
         const response = await fetch(originalMedia);
         const blob = await response.blob();
         formData.append('file', blob, 'media'); // Use the same media file
-        const uploadResponse = await fetch(`http://172.20.10.10:8000/api/upload${blob.type.startsWith('video') ? '_video' : ''}`, {
+        const endpoint = blob.type.startsWith('video') 
+          ? (processingMethod === 'tensorflow' ? 'upload_video_tensorflow' : 'upload_video') 
+          : (processingMethod === 'tensorflow' ? 'upload_image_tensorflow' : 'upload');
+        const uploadResponse = await fetch(`http://172.20.10.10:8000/api/${endpoint}`, {
           method: 'POST',
           body: formData,
         });
@@ -300,9 +308,8 @@ const HomePage = () => {
           </div>
           <select id="options" value={selectedOption} onChange={handleOptionChange}>
             <option value=""></option>
-            <option value="option1">Option 1</option>
-            <option value="option2">Option 2</option>
-            <option value="option3">Option 3</option>
+            <option value="opencv">OpenCV</option> {/* Add OpenCV option */}
+            <option value="tensorflow">TensorFlow</option> {/* Add TensorFlow option */}
           </select>
         </div>
       </div>
@@ -335,9 +342,8 @@ const HomePage = () => {
           </div>
           <select id="options" value={selectedOption} onChange={handleOptionChange}>
             <option value=""></option>
-            <option value="option1">Option 1</option>
-            <option value="option2">Option 2</option>
-            <option value="option3">Option 3</option>
+            <option value="opencv">OpenCV</option> {/* Add OpenCV option */}
+            <option value="tensorflow">TensorFlow</option> {/* Add TensorFlow option */}
           </select>
         </div>
       </div>
