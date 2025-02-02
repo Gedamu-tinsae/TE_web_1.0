@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import '../styles/HomePage.css';
 import videoIcon from '../assets/video-icon.png';
+import realtimeIcon from '../assets/realtime-icon.png';
 import fileIcon from '../assets/file-icon.png';
 import processingIcon from '../assets/processing-icon.png';
 import reloadIcon from '../assets/reload-icon.png';
@@ -64,14 +65,14 @@ const HomePage = () => {
         setIsUploaded(true);
 
         try {
-          const response = await fetch(`http://localhost:8000/api/upload${type === 'video' ? '_video' : ''}`, {
+          const response = await fetch(`http://172.20.10.10:8000/api/upload${type === 'video' ? '_video' : ''}`, {
             method: 'POST',
             body: formData,
           });
           const result = await response.json();
           console.log('Upload result:', result);
           if (result.status === 'success') {
-            setResultMedia(`http://localhost:8000${encodeURI(result.result_url)}`);
+            setResultMedia(`http://172.20.10.10:8000${encodeURI(result.result_url)}`);
             setProcessingInfo(result); // Store processing info
             setIntermediateImages(result.intermediate_images); // Store intermediate images
           }
@@ -98,14 +99,14 @@ const HomePage = () => {
         const response = await fetch(originalMedia);
         const blob = await response.blob();
         formData.append('file', blob, 'media'); // Use the same media file
-        const uploadResponse = await fetch(`http://localhost:8000/api/upload${blob.type.startsWith('video') ? '_video' : ''}`, {
+        const uploadResponse = await fetch(`http://172.20.10.10:8000/api/upload${blob.type.startsWith('video') ? '_video' : ''}`, {
           method: 'POST',
           body: formData,
         });
         const result = await uploadResponse.json();
         console.log('Reload result:', result);
         if (result.status === 'success') {
-          setResultMedia(`http://localhost:8000${encodeURI(result.result_url)}`);
+          setResultMedia(`http://172.20.10.10:8000${encodeURI(result.result_url)}`);
           setProcessingInfo(result); // Store processing info
           setIntermediateImages(result.intermediate_images); // Store intermediate images
         }
@@ -324,7 +325,7 @@ const HomePage = () => {
             <span className="tooltip">Upload Video</span>
           </button>
           <button className="upload-btn real-time">
-            <img src={videoIcon} alt="Real Time Icon" className="real-time-icon" />
+            <img src={realtimeIcon} alt="Real Time Icon" className="real-time-icon" />
             <span className="tooltip">Real-Time Detection</span>
           </button>
         </div>

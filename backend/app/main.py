@@ -21,3 +21,8 @@ app.mount("/results", StaticFiles(directory="results"), name="results")
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Car Plate Extractor API"}
+
+import uvicorn
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
