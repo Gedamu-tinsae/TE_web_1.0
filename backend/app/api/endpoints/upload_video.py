@@ -15,7 +15,7 @@ router = APIRouter()
 async def upload_video(file: UploadFile = File(...)):
     try:
         # Save the uploaded file
-        upload_dir = "uploads"
+        upload_dir = os.path.join("uploads", "opencv", "videos")
         os.makedirs(upload_dir, exist_ok=True)
         file_path = os.path.join(upload_dir, file.filename)
         with open(file_path, "wb") as buffer:

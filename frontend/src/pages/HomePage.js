@@ -59,9 +59,9 @@ const HomePage = () => {
         const formData = new FormData();
         formData.append('file', files[0]);
         const fileURL = URL.createObjectURL(files[0]);
-        console.log('File URL:', fileURL); // Debugging: Check the file URL
-        setOriginalMedia(fileURL); // Ensure originalMedia is set
-        setMediaType(type); // Set the media type
+        console.log('File URL:', fileURL);
+        setOriginalMedia(fileURL);
+        setMediaType(type);
         setIsProcessing(true);
         setIsUploaded(true);
 
@@ -76,12 +76,12 @@ const HomePage = () => {
           const result = await response.json();
           console.log('Upload result:', result);
           if (result.status === 'success') {
-            setResultMedia(processingMethod === 'tensorflow' 
-              ? `http://172.20.10.10:8000${result.steps.final}`
-              : `http://172.20.10.10:8000${result.result_url}`
-            );
+            const resultUrl = `http://172.20.10.10:8000${result.result_url}`;
+            setResultMedia(resultUrl);
             setProcessingInfo(result);
             if (processingMethod === 'opencv') {
+              setIntermediateImages(result.intermediate_images);
+            } else if (processingMethod === 'tensorflow') {
               setIntermediateImages(result.intermediate_images);
             }
           }
@@ -234,15 +234,19 @@ const HomePage = () => {
                       <img src={`data:image/jpeg;base64,${intermediateImages.plate}`} alt="License Plate" />
                     </div>
                   )}
-                  {processingMethod === 'tensorflow' && processingInfo && processingInfo.steps && (
+                  {processingMethod === 'tensorflow' && intermediateImages && (
                     <div className="intermediate-images">
+                      <p><strong>Original Image:</strong></p>
+                      <img src={`data:image/jpeg;base64,${intermediateImages.original}`} alt="Original" />
                       <p><strong>Detection Result:</strong></p>
-                      <img src={`http://172.20.10.10:8000${processingInfo.steps.detection}`} alt="Detection" />
-                      {processingInfo.steps.plates.map((plate, index) => (
+                      <img src={`data:image/jpeg;base64,${intermediateImages.detection}`} alt="Detection" />
+                      {intermediateImages.plates && intermediateImages.plates.map((plate, index) => (
                         <div key={index} className="detected-plate">
                           <p><strong>Detected Plate {index + 1}:</strong></p>
-                          <img src={`http://172.20.10.10:8000${plate}`} alt={`Plate ${index + 1}`} />
-                          <p className="plate-text">Text: {processingInfo.detected_plates[index]}</p>
+                          <img src={`data:image/jpeg;base64,${plate}`} alt={`Plate ${index + 1}`} />
+                          {processingInfo && processingInfo.detected_plates && (
+                            <p className="plate-text">Text: {processingInfo.detected_plates[index]}</p>
+                          )}
                         </div>
                       ))}
                     </div>

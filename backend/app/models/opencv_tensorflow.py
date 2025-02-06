@@ -11,8 +11,20 @@ import base64
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def ensure_dirs():
+    """Ensure all required directories exist"""
+    dirs = [
+        "uploads/opencv/images",
+        "uploads/opencv/videos",
+        "results/opencv/images",
+        "results/opencv/videos"
+    ]
+    for dir_path in dirs:
+        os.makedirs(dir_path, exist_ok=True)
+
 def process_image(file_path):
     try:
+        ensure_dirs()
         # Load the image
         image = cv2.imread(file_path)
         if image is None:
@@ -76,8 +88,8 @@ def process_image(file_path):
             annotated_image = cv2.rectangle(image, tuple(location[0][0]), tuple(location[2][0]), (0,255,0), 3)
             logger.info("Annotated image with license plate text and rectangle")
 
-            # Save the annotated image
-            result_image_path = os.path.join("results", os.path.basename(file_path))
+            # Save the annotated image in the opencv/images subfolder
+            result_image_path = os.path.join("results", "opencv", "images", os.path.basename(file_path))
             cv2.imwrite(result_image_path, annotated_image)
             logger.info(f"Annotated image saved at: {result_image_path}")
 
@@ -103,7 +115,7 @@ def process_image(file_path):
             # Example result
             result = {
                 "status": "success",
-                "result_url": f"/results/{os.path.basename(result_image_path)}",
+                "result_url": f"/results/opencv/images/{os.path.basename(result_image_path)}",
                 "intermediate_images": intermediate_images,
                 "license_plate": license_plate,
                 "filename": file_path,
@@ -123,6 +135,7 @@ def process_image(file_path):
 
 def process_video(file_path):
     try:
+        ensure_dirs()
         cap = cv2.VideoCapture(file_path)
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = cap.get(cv2.CAP_PROP_FPS) or 30.0  # Get the original FPS or default to 30.0
@@ -180,7 +193,7 @@ def process_video(file_path):
 
         cap.release()
         if results:
-            result_video_path = os.path.join("results", os.path.basename(file_path))
+            result_video_path = os.path.join("results", "opencv", "videos", os.path.basename(file_path))
             fourcc = cv2.VideoWriter_fourcc(*'avc1')  # Use H.264 codec
             frame_size = (results[0].shape[1], results[0].shape[0])
             out = cv2.VideoWriter(result_video_path, fourcc, fps, frame_size)
@@ -194,7 +207,7 @@ def process_video(file_path):
 
             result = {
                 "status": "success",
-                "result_url": f"/results/{os.path.basename(result_video_path)}",
+                "result_url": f"/results/opencv/videos/{os.path.basename(result_video_path)}",
                 "filename": file_path,
             }
 

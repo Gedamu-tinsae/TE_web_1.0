@@ -4,10 +4,22 @@ import cv2
 import os
 import logging
 import easyocr
+import base64
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def ensure_dirs():
+    """Ensure all required directories exist"""
+    dirs = [
+        "uploads/tensorflow/images",
+        "uploads/tensorflow/videos",
+        "results/tensorflow/images",
+        "results/tensorflow/videos"
+    ]
+    for dir_path in dirs:
+        os.makedirs(dir_path, exist_ok=True)
 
 # Load the TensorFlow model
 model_path = os.path.join(os.path.dirname(__file__), 'saved_model')
@@ -45,16 +57,13 @@ def extract_text_from_plate(plate_region):
 
 def process_image_with_model(file_path):
     try:
+        ensure_dirs()
         # Load the image
         original_image = cv2.imread(file_path)
         if original_image is None:
             logger.error("Failed to load image.")
             raise ValueError("Failed to load image.")
         logger.info("Image loaded successfully")
-
-        # Save original image
-        original_path = os.path.join("results", "1_original_" + os.path.basename(file_path))
-        cv2.imwrite(original_path, original_image)
 
         # Make a copy for detection visualization
         image = original_image.copy()
@@ -102,28 +111,30 @@ def process_image_with_model(file_path):
                           (255, 255, 255),
                           2)
 
-        # Save intermediate steps
-        detection_path = os.path.join("results", "2_detection_" + os.path.basename(file_path))
-        cv2.imwrite(detection_path, detection_image)
-
-        # Save individual plate regions
-        for idx, plate_img in enumerate(localized_images):
-            plate_path = os.path.join("results", f"3_plate_{idx}_" + os.path.basename(file_path))
-            cv2.imwrite(plate_path, plate_img)
-
-        # Save final result with OCR
-        final_path = os.path.join("results", "4_final_" + os.path.basename(file_path))
+        # Save only the final result with OCR
+        final_path = os.path.join("results", "tensorflow", "images", os.path.basename(file_path))
         cv2.imwrite(final_path, image)
+
+        # Encode intermediate images as base64 for frontend display
+        def encode_image(img):
+            _, buffer = cv2.imencode('.jpg', img)
+            return base64.b64encode(buffer).decode('utf-8')
+
+        # Include all intermediate steps as base64 for frontend display
+        intermediate_images = {
+            "original": encode_image(original_image),
+            "detection": encode_image(detection_image),
+            "plates": [encode_image(plate) for plate in localized_images]
+        }
 
         result = {
             "status": "success",
-            "steps": {
-                "original": f"/results/1_original_{os.path.basename(file_path)}",
-                "detection": f"/results/2_detection_{os.path.basename(file_path)}",
-                "plates": [f"/results/3_plate_{i}_{os.path.basename(file_path)}" for i in range(len(localized_images))],
-                "final": f"/results/4_final_{os.path.basename(file_path)}"
-            },
-            "detected_plates": extracted_texts
+            "filename": file_path,
+            "result_url": f"/results/tensorflow/images/{os.path.basename(file_path)}",
+            "result_image": encode_image(image),  # Add base64 of final image
+            "intermediate_images": intermediate_images,
+            "detected_plates": extracted_texts,
+            "license_plate": extracted_texts[0] if extracted_texts else "Unknown"  # Add primary plate text
         }
 
         return result
@@ -133,11 +144,18 @@ def process_image_with_model(file_path):
 
 def process_video_with_model(file_path):
     try:
+        ensure_dirs()
         cap = cv2.VideoCapture(file_path)
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
         frame_number = 0
         results = []
+        all_extracted_texts = []
+        all_intermediate_frames = {
+            "original": [],
+            "detection": [],
+            "plates": []
+        }
 
         while cap.isOpened():
             ret, frame = cap.read()
@@ -146,6 +164,9 @@ def process_video_with_model(file_path):
 
             frame_number += 1
             logger.info(f"Processing frame {frame_number}/{frame_count}")
+
+            # Store original frame
+            original_frame = frame.copy()
 
             # Convert frame to tensor and detect plates
             image_np = np.array(frame)
@@ -157,6 +178,11 @@ def process_video_with_model(file_path):
             detections['num_detections'] = num_detections
             detections['detection_classes'] = detections['detection_classes'].astype(np.int64)
 
+            # Image for showing detections without OCR text
+            detection_frame = frame.copy()
+            frame_plates = []
+            frame_texts = []
+
             for i in range(num_detections):
                 if detections['detection_scores'][i] > 0.8:
                     box = detections['detection_boxes'][i]
@@ -164,13 +190,40 @@ def process_video_with_model(file_path):
                     y_min, x_min, y_max, x_max = box
                     x_min, x_max = int(x_min * w), int(x_max * w)
                     y_min, y_max = int(y_min * h), int(y_max * h)
-                    cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
 
+                    # Draw rectangle on detection frame
+                    cv2.rectangle(detection_frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+
+                    # Extract plate region
+                    plate = frame[y_min:y_max, x_min:x_max]
+                    frame_plates.append(plate)
+
+                    # Extract text from plate
+                    plate_text = extract_text_from_plate(plate)
+                    frame_texts.append(plate_text)
+
+                    # Draw rectangle and text on final frame
+                    cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+                    cv2.putText(frame, plate_text,
+                              (x_min, y_min - 10),
+                              cv2.FONT_HERSHEY_SIMPLEX,
+                              0.9,
+                              (255, 255, 255),
+                              2)
+
+            # Store intermediate results for this frame
+            all_intermediate_frames["original"].append(original_frame)
+            all_intermediate_frames["detection"].append(detection_frame)
+            all_intermediate_frames["plates"].extend(frame_plates)
+            all_extracted_texts.extend(frame_texts)
+
+            # Add processed frame to results
             results.append(frame)
 
         cap.release()
         if results:
-            result_video_path = os.path.join("results", os.path.basename(file_path))
+            # Save the processed video
+            result_video_path = os.path.join("results", "tensorflow", "videos", os.path.basename(file_path))
             fourcc = cv2.VideoWriter_fourcc(*'avc1')
             frame_size = (results[0].shape[1], results[0].shape[0])
             out = cv2.VideoWriter(result_video_path, fourcc, fps, frame_size)
@@ -180,10 +233,27 @@ def process_video_with_model(file_path):
             out.release()
             logger.info(f"Processed video saved at: {result_video_path}")
 
+            # Encode sample frames and plates as base64 for frontend display
+            def encode_image(img):
+                _, buffer = cv2.imencode('.jpg', img)
+                return base64.b64encode(buffer).decode('utf-8')
+
+            # Take a sample frame from each category for display
+            sample_frame_index = min(10, len(results) - 1)  # Take 10th frame or last frame if video is shorter
+            intermediate_images = {
+                "original": encode_image(all_intermediate_frames["original"][sample_frame_index]),
+                "detection": encode_image(all_intermediate_frames["detection"][sample_frame_index]),
+                "plates": [encode_image(plate) for plate in all_intermediate_frames["plates"][:5]]  # Limit to first 5 plates
+            }
+
             result = {
                 "status": "success",
-                "result_url": f"/results/{os.path.basename(result_video_path)}",
                 "filename": file_path,
+                "result_url": f"/results/tensorflow/videos/{os.path.basename(file_path)}",
+                "result_image": encode_image(results[sample_frame_index]),  # Sample frame from result
+                "intermediate_images": intermediate_images,
+                "detected_plates": list(set(all_extracted_texts)),  # Remove duplicates
+                "license_plate": all_extracted_texts[0] if all_extracted_texts else "Unknown"
             }
 
             return result
