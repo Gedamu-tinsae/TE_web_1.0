@@ -23,8 +23,10 @@ body {
   justify-content: center;
   height: 100vh;
   /* min-height: calc(100vh - 0rem);  */
-  position: relative; /* Change to relative positioning */
+  position: ab; /* Change to relative positioning */
   overflow:scroll;
+
+  
 }
 
 .navbar {

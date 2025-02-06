@@ -76,9 +76,14 @@ const HomePage = () => {
           const result = await response.json();
           console.log('Upload result:', result);
           if (result.status === 'success') {
-            setResultMedia(`http://172.20.10.10:8000${encodeURI(result.result_url)}`);
-            setProcessingInfo(result); // Store processing info
-            setIntermediateImages(result.intermediate_images); // Store intermediate images
+            setResultMedia(processingMethod === 'tensorflow' 
+              ? `http://172.20.10.10:8000${result.steps.final}`
+              : `http://172.20.10.10:8000${result.result_url}`
+            );
+            setProcessingInfo(result);
+            if (processingMethod === 'opencv') {
+              setIntermediateImages(result.intermediate_images);
+            }
           }
         } catch (error) {
           console.error('Error uploading file:', error);
@@ -217,7 +222,7 @@ const HomePage = () => {
                   <button className="expand-btn" onClick={() => handleExpandClick('original')}>
                     <img src={expandIcon} alt="Expand Icon" style={{ width: '20px', height: '20px', filter: 'invert(100%) sepia(100%) saturate(0%) hue-rotate(60deg) brightness(100%) contrast(100%)' }} />
                   </button>
-                  {intermediateImages && (
+                  {processingMethod === 'opencv' && intermediateImages && (
                     <div className="intermediate-images">
                       <p><strong>Gray Scale:</strong></p>
                       <img src={`data:image/jpeg;base64,${intermediateImages.gray}`} alt="Gray Scale" />
@@ -227,6 +232,19 @@ const HomePage = () => {
                       <img src={`data:image/jpeg;base64,${intermediateImages.localized}`} alt="Localized" />
                       <p><strong>License Plate:</strong></p>
                       <img src={`data:image/jpeg;base64,${intermediateImages.plate}`} alt="License Plate" />
+                    </div>
+                  )}
+                  {processingMethod === 'tensorflow' && processingInfo && processingInfo.steps && (
+                    <div className="intermediate-images">
+                      <p><strong>Detection Result:</strong></p>
+                      <img src={`http://172.20.10.10:8000${processingInfo.steps.detection}`} alt="Detection" />
+                      {processingInfo.steps.plates.map((plate, index) => (
+                        <div key={index} className="detected-plate">
+                          <p><strong>Detected Plate {index + 1}:</strong></p>
+                          <img src={`http://172.20.10.10:8000${plate}`} alt={`Plate ${index + 1}`} />
+                          <p className="plate-text">Text: {processingInfo.detected_plates[index]}</p>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -252,12 +270,59 @@ const HomePage = () => {
                   <button className="expand-btn" onClick={() => handleExpandClick('annotated')}>
                     <img src={expandIcon} alt="Expand Icon" style={{ width: '20px', height: '20px', filter: 'invert(100%) sepia(100%) saturate(0%) hue-rotate(60deg) brightness(100%) contrast(100%)' }} />
                   </button>
-                  {processingInfo && (
+                  {processingMethod === 'opencv' && processingInfo && (
                     <div className="processing-info">
                       <p><strong>Filename:</strong> {processingInfo.filename}</p>
                       <p><strong>License Plate:</strong> {processingInfo.license_plate}</p>
                       <p><strong>Status:</strong> {processingInfo.status}</p>
                       <p><strong>Result URL:</strong> <a href={processingInfo.result_url} target="_blank" rel="noopener noreferrer">{processingInfo.result_url}</a></p>
+                      <p><strong>Visit History:</strong> this could be the cars visit history to the company</p>
+                      {processingInfo.customer_data && (
+                        <div className="customer-data">
+                          <h4>Customer Data:</h4>
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>CustomerID</th>
+                                <th>FirstName</th>
+                                <th>LastName</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>City</th>
+                                <th>Country</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {processingInfo.customer_data.map((customer, index) => (
+                                <tr key={index}>
+                                  <td>{customer.CustomerID}</td>
+                                  <td>{customer.FirstName}</td>
+                                  <td>{customer.LastName}</td>
+                                  <td>{customer.Email}</td>
+                                  <td>{customer.Phone}</td>
+                                  <td>{customer.City}</td>
+                                  <td>{customer.Country}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {processingMethod === 'tensorflow' && processingInfo && (
+                    <div className="processing-info">
+                      <p><strong>Status:</strong> {processingInfo.status}</p>
+                      {processingInfo.detected_plates && processingInfo.detected_plates.length > 0 && (
+                        <>
+                          <p><strong>Detected License Plates:</strong></p>
+                          <ul className="detected-plates-list">
+                            {processingInfo.detected_plates.map((plate, index) => (
+                              <li key={index}>Plate {index + 1}: {plate}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
                       <p><strong>Visit History:</strong> this could be the cars visit history to the company</p>
                       {processingInfo.customer_data && (
                         <div className="customer-data">
