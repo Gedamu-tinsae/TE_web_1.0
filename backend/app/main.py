@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.endpoints import upload, upload_video, upload_tensorflow
+from app.api.endpoints import upload, upload_video, upload_tensorflow, realtime
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
@@ -17,7 +17,8 @@ app.add_middleware(
 
 app.include_router(upload.router, prefix="/api")
 app.include_router(upload_video.router, prefix="/api")
-app.include_router(upload_tensorflow.router, prefix="/api")  # Include new router
+app.include_router(upload_tensorflow.router, prefix="/api")
+app.include_router(realtime.router, prefix="/api")  # Include realtime router
 app.mount("/results", StaticFiles(directory="results"), name="results")
 
 @app.get("/")

@@ -6,6 +6,7 @@ import fileIcon from '../assets/file-icon.png';
 import processingIcon from '../assets/processing-icon.png';
 import reloadIcon from '../assets/reload-icon.png';
 import expandIcon from '../assets/expand-icon.png';
+import RealtimeDetection from './RealtimeDetection';
 
 const HomePage = () => {
   const [resultMedia, setResultMedia] = useState(null);
@@ -25,6 +26,7 @@ const HomePage = () => {
   const [finalTime, setFinalTime] = useState(null);
   const [processingMethod, setProcessingMethod] = useState('opencv'); // New state for processing method
   const startTimeRef = useRef(null);
+  const [isRealtimeActive, setIsRealtimeActive] = useState(false);
 
   useEffect(() => {
     let interval;
@@ -179,6 +181,14 @@ const HomePage = () => {
   useEffect(() => {
     console.log('Original Media URL:', originalMedia); // Debugging: Check the original media URL
   }, [originalMedia]);
+
+  const handleRealtimeClick = () => {
+    setIsRealtimeActive(true);
+  };
+
+  const handleRealtimeClose = () => {
+    setIsRealtimeActive(false);
+  };
 
   if (isProcessing) {
     return (
@@ -335,6 +345,10 @@ const HomePage = () => {
 
   return (
     <div className="home-page">
+      <RealtimeDetection 
+        isActive={isRealtimeActive} 
+        onClose={handleRealtimeClose}
+      />
       <div className="upload-section-container">
         <div className="upload-header">
           <h2>Upload Footage.</h2>
@@ -348,7 +362,7 @@ const HomePage = () => {
             <img src={videoIcon} alt="Video Icon" className="video-icon" />
             <span className="tooltip">Upload Video</span>
           </button>
-          <button className="upload-btn real-time">
+          <button className="upload-btn real-time" onClick={handleRealtimeClick}>
             <img src={realtimeIcon} alt="Real Time Icon" className="real-time-icon" />
             <span className="tooltip">Real-Time Detection</span>
           </button>
