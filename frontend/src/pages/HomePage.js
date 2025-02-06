@@ -217,7 +217,7 @@ const HomePage = () => {
                   <button className="expand-btn" onClick={() => handleExpandClick('original')}>
                     <img src={expandIcon} alt="Expand Icon" style={{ width: '20px', height: '20px', filter: 'invert(100%) sepia(100%) saturate(0%) hue-rotate(60deg) brightness(100%) contrast(100%)' }} />
                   </button>
-                  {intermediateImages && (
+                  {processingMethod === 'opencv' && intermediateImages && (
                     <div className="intermediate-images">
                       <p><strong>Gray Scale:</strong></p>
                       <img src={`data:image/jpeg;base64,${intermediateImages.gray}`} alt="Gray Scale" />
@@ -227,6 +227,23 @@ const HomePage = () => {
                       <img src={`data:image/jpeg;base64,${intermediateImages.localized}`} alt="Localized" />
                       <p><strong>License Plate:</strong></p>
                       <img src={`data:image/jpeg;base64,${intermediateImages.plate}`} alt="License Plate" />
+                    </div>
+                  )}
+                  {processingMethod === 'tensorflow' && processingInfo && processingInfo.intermediate_steps && (
+                    <div className="intermediate-images">
+                      <p><strong>Original Image:</strong></p>
+                      <img src={`http://172.20.10.10:8000${processingInfo.intermediate_steps.original}`} alt="Original" />
+                      <p><strong>Detection Result:</strong></p>
+                      <img src={`http://172.20.10.10:8000${processingInfo.intermediate_steps.detection}`} alt="Detection" />
+                      {processingInfo.intermediate_steps.plates.map((platePath, index) => (
+                        <div key={index} className="detected-plate">
+                          <p><strong>Detected Plate {index + 1}:</strong></p>
+                          <img src={`http://172.20.10.10:8000${platePath}`} alt={`Plate ${index + 1}`} />
+                          {processingInfo.detected_plates && (
+                            <p className="plate-text">Text: {processingInfo.detected_plates[index]}</p>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

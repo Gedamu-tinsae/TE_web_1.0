@@ -16,7 +16,9 @@ def ensure_dirs():
         "uploads/tensorflow/images",
         "uploads/tensorflow/videos",
         "results/tensorflow/images",
-        "results/tensorflow/videos"
+        "results/tensorflow/videos",
+        "results/tensorflow/intermediate/images",
+        "results/tensorflow/intermediate/videos"
     ]
     for dir_path in dirs:
         os.makedirs(dir_path, exist_ok=True)
@@ -111,30 +113,40 @@ def process_image_with_model(file_path):
                           (255, 255, 255),
                           2)
 
-        # Save only the final result with OCR
-        final_path = os.path.join("results", "tensorflow", "images", os.path.basename(file_path))
+        # Save intermediate results
+        base_name = os.path.basename(file_path)
+        intermediate_dir = os.path.join("results", "tensorflow", "intermediate", "images")
+        
+        # Save original image
+        original_path = os.path.join(intermediate_dir, f"1_original_{base_name}")
+        cv2.imwrite(original_path, original_image)
+        
+        # Save detection image
+        detection_path = os.path.join(intermediate_dir, f"2_detection_{base_name}")
+        cv2.imwrite(detection_path, detection_image)
+        
+        # Save plate regions
+        plate_paths = []
+        for idx, plate in enumerate(localized_images):
+            plate_path = os.path.join(intermediate_dir, f"3_plate_{idx}_{base_name}")
+            cv2.imwrite(plate_path, plate)
+            plate_paths.append(f"/results/tensorflow/intermediate/images/3_plate_{idx}_{base_name}")
+
+        # Save final result
+        final_path = os.path.join("results", "tensorflow", "images", base_name)
         cv2.imwrite(final_path, image)
-
-        # Encode intermediate images as base64 for frontend display
-        def encode_image(img):
-            _, buffer = cv2.imencode('.jpg', img)
-            return base64.b64encode(buffer).decode('utf-8')
-
-        # Include all intermediate steps as base64 for frontend display
-        intermediate_images = {
-            "original": encode_image(original_image),
-            "detection": encode_image(detection_image),
-            "plates": [encode_image(plate) for plate in localized_images]
-        }
 
         result = {
             "status": "success",
             "filename": file_path,
-            "result_url": f"/results/tensorflow/images/{os.path.basename(file_path)}",
-            "result_image": encode_image(image),  # Add base64 of final image
-            "intermediate_images": intermediate_images,
+            "result_url": f"/results/tensorflow/images/{base_name}",
+            "intermediate_steps": {
+                "original": f"/results/tensorflow/intermediate/images/1_original_{base_name}",
+                "detection": f"/results/tensorflow/intermediate/images/2_detection_{base_name}",
+                "plates": plate_paths
+            },
             "detected_plates": extracted_texts,
-            "license_plate": extracted_texts[0] if extracted_texts else "Unknown"  # Add primary plate text
+            "license_plate": extracted_texts[0] if extracted_texts else "Unknown"
         }
 
         return result
