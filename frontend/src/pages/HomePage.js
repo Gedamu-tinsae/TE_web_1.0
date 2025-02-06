@@ -61,13 +61,14 @@ const HomePage = () => {
         const formData = new FormData();
         formData.append('file', files[0]);
         const fileURL = URL.createObjectURL(files[0]);
-        console.log('File URL:', fileURL); // Debugging: Check the file URL
-        setOriginalMedia(fileURL); // Ensure originalMedia is set
-        setMediaType(type); // Set the media type
+        console.log('File URL:', fileURL);
+        setOriginalMedia(fileURL);
+        setMediaType(type);
         setIsProcessing(true);
-        setIsUploaded(true);
+        setIsUploaded(false); // Don't set to true until processing is complete
 
         try {
+          const startTime = Date.now(); // Start timing
           const endpoint = type === 'video' 
             ? (processingMethod === 'tensorflow' ? 'upload_video_tensorflow' : 'upload_video') 
             : (processingMethod === 'tensorflow' ? 'upload_image_tensorflow' : 'upload');
@@ -78,12 +79,19 @@ const HomePage = () => {
           const result = await response.json();
           console.log('Upload result:', result);
           if (result.status === 'success') {
+            // Calculate processing time
+            const endTime = Date.now();
+            const processingTime = endTime - startTime;
+            setFinalTime(`${Math.floor(processingTime / 1000)} seconds ${processingTime % 1000} milliseconds`);
+            
             setResultMedia(`http://172.20.10.10:8000${encodeURI(result.result_url)}`);
-            setProcessingInfo(result); // Store processing info
-            setIntermediateImages(result.intermediate_images); // Store intermediate images
+            setProcessingInfo(result);
+            setIntermediateImages(result.intermediate_images);
+            setIsUploaded(true); // Set to true only after successful processing
           }
         } catch (error) {
           console.error('Error uploading file:', error);
+          setIsUploaded(false); // Ensure it's false if there's an error
         } finally {
           setIsProcessing(false);
         }
@@ -93,38 +101,76 @@ const HomePage = () => {
   };
 
   const handleOptionChange = (event) => {
-    setSelectedOption(event.target.value);
-    setProcessingMethod(event.target.value); // Set processing method based on dropdown selection
+    const newMethod = event.target.value;
+    setSelectedOption(newMethod);
+    setProcessingMethod(newMethod);
+    // If we're on the result page and a valid method is selected, automatically reload
+    if (isUploaded && originalMedia && newMethod) {
+      handleReloadClick(newMethod);
+    }
   };
 
-  const handleReloadClick = async () => {
+  const handleReloadClick = async (newMethod = processingMethod) => {
     if (originalMedia) {
       setIsProcessing(true);
-      setIsUploaded(false); // Hide the result page
+      setIsUploaded(false);
+      // Reset states before processing
+      setResultMedia(null);
+      setProcessingInfo(null);
+      setIntermediateImages(null);
+      setShowMoreOriginal(false);
+      setShowMoreAnnotated(false);
+      setFinalTime(null);
+      
       try {
+        const startTime = Date.now(); // Start timing
         const formData = new FormData();
-        const response = await fetch(originalMedia);
-        const blob = await response.blob();
-        formData.append('file', blob, 'media'); // Use the same media file
-        const endpoint = blob.type.startsWith('video') 
-          ? (processingMethod === 'tensorflow' ? 'upload_video_tensorflow' : 'upload_video') 
-          : (processingMethod === 'tensorflow' ? 'upload_image_tensorflow' : 'upload');
+        
+        // Get the current media file
+        let mediaBlob;
+        if (originalMedia.startsWith('blob:')) {
+          // If it's a blob URL from a file upload
+          const response = await fetch(originalMedia);
+          mediaBlob = await response.blob();
+        } else {
+          // If it's a file that was previously uploaded
+          const response = await fetch(originalMedia);
+          mediaBlob = await response.blob();
+        }
+        
+        // Set the correct filename and type
+        const filename = mediaType === 'video' ? 'video.mp4' : 'image.jpg';
+        formData.append('file', mediaBlob, filename);
+        
+        // Use the new method parameter to determine the endpoint
+        const endpoint = mediaType === 'video'
+          ? (newMethod === 'tensorflow' ? 'upload_video_tensorflow' : 'upload_video')
+          : (newMethod === 'tensorflow' ? 'upload_image_tensorflow' : 'upload');
+          
         const uploadResponse = await fetch(`http://172.20.10.10:8000/api/${endpoint}`, {
           method: 'POST',
           body: formData,
         });
         const result = await uploadResponse.json();
         console.log('Reload result:', result);
+        
         if (result.status === 'success') {
+          // Calculate processing time
+          const endTime = Date.now();
+          const processingTime = endTime - startTime;
+          setFinalTime(`${Math.floor(processingTime / 1000)} seconds ${processingTime % 1000} milliseconds`);
+          
+          // Update all states with new data
           setResultMedia(`http://172.20.10.10:8000${encodeURI(result.result_url)}`);
-          setProcessingInfo(result); // Store processing info
-          setIntermediateImages(result.intermediate_images); // Store intermediate images
+          setProcessingInfo(result);
+          setIntermediateImages(result.intermediate_images);
+          setIsUploaded(true);
         }
       } catch (error) {
         console.error('Error reloading file:', error);
+        setIsUploaded(false);
       } finally {
         setIsProcessing(false);
-        setIsUploaded(true); // Show the result page again
       }
     }
   };
@@ -325,19 +371,18 @@ const HomePage = () => {
           </div>
           {mediaType === 'video' && (
             <button className="play-btn" onClick={handlePlayClick}>Play Both Videos</button>
-          )} {/* Conditionally render play button */}
-          <p>Processing time: {finalTime}</p> {/* Display final processing time */}
-        </div>
-        <div className="space-between"></div> {/* Add space */}
-        <div className="dropdown-container">
-          <div className="icon-container" onClick={handleReloadClick}>
-            <img src={reloadIcon} alt="Option Icon" className="dropdown-icon" />
+          )}
+          <p>Processing time: {finalTime}</p>
+          <div className="dropdown-container">
+            <div className="icon-container" onClick={handleReloadClick}>
+              <img src={reloadIcon} alt="Option Icon" className="dropdown-icon" />
+            </div>
+            <select id="options" value={selectedOption} onChange={handleOptionChange}>
+              <option value=""></option>
+              <option value="opencv">OpenCV</option>
+              <option value="tensorflow">TensorFlow</option>
+            </select>
           </div>
-          <select id="options" value={selectedOption} onChange={handleOptionChange}>
-            <option value=""></option>
-            <option value="opencv">OpenCV</option> {/* Add OpenCV option */}
-            <option value="tensorflow">TensorFlow</option> {/* Add TensorFlow option */}
-          </select>
         </div>
       </div>
     );
