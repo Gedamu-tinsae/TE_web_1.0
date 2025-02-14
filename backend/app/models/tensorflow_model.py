@@ -86,7 +86,7 @@ def process_image_with_model(file_path):
         extracted_texts = []
         
         for i in range(num_detections):
-            if detections['detection_scores'][i] > 0.8:
+            if detections['detection_scores'][i] > 0.7:  # Confidence threshold
                 box = detections['detection_boxes'][i]
                 h, w, _ = image.shape
                 y_min, x_min, y_max, x_max = box
@@ -196,7 +196,7 @@ def process_video_with_model(file_path):
             frame_texts = []
 
             for i in range(num_detections):
-                if detections['detection_scores'][i] > 0.8:
+                if detections['detection_scores'][i] > 0.7:
                     box = detections['detection_boxes'][i]
                     h, w, _ = frame.shape
                     y_min, x_min, y_max, x_max = box
