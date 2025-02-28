@@ -75,8 +75,14 @@ def extract_text_from_plate(plate_region):
         # Preprocess the plate image for better OCR
         gray = cv2.cvtColor(plate_region, cv2.COLOR_BGR2GRAY)
         # Apply some basic image processing
-        gray = cv2.resize(gray, None, fx=2, fy=2)  # Upscale
-        gray = cv2.GaussianBlur(gray, (5,5), 0)
+        gray = cv2.resize(gray, None, fx=1.5, fy=1.5)  # Reduced from 2x to 1.5x
+        
+        # Apply histogram equalization to enhance contrast
+        gray = cv2.equalizeHist(gray)
+        
+        # Skip the Gaussian blur step which might be causing character confusion
+        # gray = cv2.GaussianBlur(gray, (5,5), 0)  # Original line commented out
+        
         gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
         
         # Define character similarity mappings for suggestions
