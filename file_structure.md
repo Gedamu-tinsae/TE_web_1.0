@@ -56,5 +56,3 @@
 
 ## Root
 - `file structure.md`
-
-Note: This structure will be updated as new files and features are added to the project.

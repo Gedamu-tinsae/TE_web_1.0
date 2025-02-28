@@ -76,10 +76,32 @@ def process_image(file_path):
             cropped_image = gray[x1:x2+1, y1:y2+1]
             logger.info("License plate region extracted")
 
-            # Use EasyOCR to read the text from the license plate
+            # Use EasyOCR to read the text from the license plate with confidence scores
             reader = easyocr.Reader(['en'])
-            result = reader.readtext(cropped_image)
-            license_plate = result[0][-2] if result else "Unknown"
+            result = reader.readtext(cropped_image, allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+            
+            # Process and store all text candidates with confidence
+            text_candidates = []
+            if result:
+                for detection in result:
+                    bbox, text, confidence = detection
+                    # Clean the text (remove unwanted characters, spaces)
+                    text = ''.join(c for c in text if c.isalnum())
+                    if text:
+                        text_candidates.append({
+                            "text": text,
+                            "confidence": float(confidence)
+                        })
+                
+                # Sort by confidence (highest first)
+                text_candidates.sort(key=lambda x: x["confidence"], reverse=True)
+                
+                # Get the highest confidence text
+                license_plate = text_candidates[0]["text"] if text_candidates else "Unknown"
+            else:
+                license_plate = "Unknown"
+                text_candidates.append({"text": "Unknown", "confidence": 0.0})
+                
             logger.info(f"License plate text extracted: {license_plate}")
 
             # Annotate the image with the license plate text and rectangle
@@ -112,14 +134,15 @@ def process_image(file_path):
                 "plate": encode_image(cropped_image),
             }
 
-            # Example result
+            # Example result - ensure text_candidates is a direct array, not nested in another array
             result = {
                 "status": "success",
                 "result_url": f"/results/opencv/images/{os.path.basename(result_image_path)}",
                 "intermediate_images": intermediate_images,
                 "license_plate": license_plate,
                 "filename": file_path,
-                "customer_data": customer_data
+                "customer_data": customer_data,
+                "text_candidates": text_candidates[:10]  # Include top 10 candidates as a direct array
             }
 
             return result

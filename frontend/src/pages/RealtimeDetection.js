@@ -243,6 +243,41 @@ const RealtimeDetection = ({ isActive, onClose }) => {
         startCamera();
     };
 
+    const renderPlates = (detection) => {
+        // Render the plate information with confidence scores
+        return (
+          <div className="detected-plate">
+            <h4>Detected License Plate</h4>
+            <p className="plate-text">Text: {detection.text}</p>
+            <p className="plate-confidence">Detection Confidence: {(detection.confidence * 100).toFixed(2)}%</p>
+            
+            {detection.text_candidates && detection.text_candidates.length > 0 && (
+              <div>
+                <h5>Possible Texts:</h5>
+                <table className="candidates-table">
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Text</th>
+                      <th>Confidence</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detection.text_candidates.slice(0, 10).map((candidate, index) => (
+                      <tr key={index} className={index === 0 ? 'best-candidate' : ''}>
+                        <td>{index + 1}</td>
+                        <td>{candidate.text}</td>
+                        <td>{(candidate.confidence * 100).toFixed(2)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      };
+
     return (
         <div className={`realtime-container ${isActive ? 'active' : ''}`}>
             {error ? (
@@ -292,4 +327,4 @@ const RealtimeDetection = ({ isActive, onClose }) => {
     );
 };
 
-export default RealtimeDetection; 
+export default RealtimeDetection;

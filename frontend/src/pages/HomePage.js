@@ -331,6 +331,41 @@ const HomePage = () => {
                       <p><strong>License Plate:</strong> {processingInfo.license_plate}</p>
                       <p><strong>Status:</strong> {processingInfo.status}</p>
                       <p><strong>Result URL:</strong> <a href={processingInfo.result_url} target="_blank" rel="noopener noreferrer">{processingInfo.result_url}</a></p>
+                      
+                      {/* Fix the text candidates section to handle different structures */}
+                      {processingInfo.text_candidates && (
+                        <div className="text-candidates">
+                          <h4>Possible License Plate Texts:</h4>
+                          <table className="candidates-table">
+                            <thead>
+                              <tr>
+                                <th>Rank</th>
+                                <th>Text</th>
+                                <th>Confidence</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {Array.isArray(processingInfo.text_candidates[0]) 
+                                ? processingInfo.text_candidates[0].map((candidate, index) => (
+                                    <tr key={index} className={index === 0 ? 'best-candidate' : ''}>
+                                      <td>{index + 1}</td>
+                                      <td>{candidate.text}</td>
+                                      <td>{(candidate.confidence * 100).toFixed(2)}%</td>
+                                    </tr>
+                                  ))
+                                : processingInfo.text_candidates.map((candidate, index) => (
+                                    <tr key={index} className={index === 0 ? 'best-candidate' : ''}>
+                                      <td>{index + 1}</td>
+                                      <td>{candidate.text}</td>
+                                      <td>{(candidate.confidence * 100).toFixed(2)}%</td>
+                                    </tr>
+                                  ))
+                              }
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      
                       <p><strong>Visit History:</strong> this could be the cars visit history to the company</p>
                       {processingInfo.customer_data && (
                         <div className="customer-data">

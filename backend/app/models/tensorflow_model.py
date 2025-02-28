@@ -5,6 +5,7 @@ import os
 import logging
 import easyocr
 import base64
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -43,19 +44,34 @@ def extract_text_from_plate(plate_region):
         gray = cv2.GaussianBlur(gray, (5,5), 0)
         gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
         
-        # Perform OCR
-        result = reader.readtext(gray)
+        # Perform OCR with allow_list to restrict to alphanumeric characters
+        result = reader.readtext(gray, allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
         
+        candidates = []
         if result:
-            # Combine all detected text pieces
-            text = ' '.join([detection[1] for detection in result])
-            # Clean the text (remove unwanted characters, spaces)
-            text = ''.join(c for c in text if c.isalnum())
-            return text
-        return "Unknown"
+            # Process all detected text regions
+            for detection in result:
+                bbox, text, confidence = detection
+                # Clean the text (remove unwanted characters, spaces)
+                text = ''.join(c for c in text if c.isalnum())
+                if text:  # Only add non-empty text
+                    candidates.append({
+                        "text": text,
+                        "confidence": float(confidence)
+                    })
+            
+            # If we found valid text candidates, return them
+            if candidates:
+                # Sort by confidence (highest first)
+                candidates.sort(key=lambda x: x["confidence"], reverse=True)
+                # Return the top candidate text for backwards compatibility
+                return candidates[0]["text"], candidates
+        
+        # Return default values if no valid text found
+        return "Unknown", [{"text": "Unknown", "confidence": 0.0}]
     except Exception as e:
         logger.error(f"Error in OCR: {e}")
-        return "Error"
+        return "Error", [{"text": "Error", "confidence": 0.0}]
 
 def process_image_with_model(file_path):
     try:
@@ -84,6 +100,7 @@ def process_image_with_model(file_path):
         
         localized_images = []
         extracted_texts = []
+        text_candidates = []
         
         for i in range(num_detections):
             if detections['detection_scores'][i] > 0.7:  # Confidence threshold
@@ -100,9 +117,10 @@ def process_image_with_model(file_path):
                 localized_plate = image[y_min:y_max, x_min:x_max]
                 localized_images.append(localized_plate)
                 
-                # Extract text
-                plate_text = extract_text_from_plate(localized_plate)
+                # Extract text with candidates
+                plate_text, candidates = extract_text_from_plate(localized_plate)
                 extracted_texts.append(plate_text)
+                text_candidates.append(candidates)
                 
                 # Draw rectangle and text on final image
                 cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
@@ -146,7 +164,8 @@ def process_image_with_model(file_path):
                 "plates": plate_paths
             },
             "detected_plates": extracted_texts,
-            "license_plate": extracted_texts[0] if extracted_texts else "Unknown"
+            "license_plate": extracted_texts[0] if extracted_texts else "Unknown",
+            "text_candidates": text_candidates[0] if text_candidates else []  # Ensure this is a direct array, not nested
         }
 
         return result
@@ -194,6 +213,7 @@ def process_video_with_model(file_path):
             detection_frame = frame.copy()
             frame_plates = []
             frame_texts = []
+            frame_candidates = []
 
             for i in range(num_detections):
                 if detections['detection_scores'][i] > 0.7:
@@ -210,9 +230,10 @@ def process_video_with_model(file_path):
                     plate = frame[y_min:y_max, x_min:x_max]
                     frame_plates.append(plate)
 
-                    # Extract text from plate
-                    plate_text = extract_text_from_plate(plate)
+                    # Extract text from plate with candidates
+                    plate_text, candidates = extract_text_from_plate(plate)
                     frame_texts.append(plate_text)
+                    frame_candidates.append(candidates)
 
                     # Draw rectangle and text on final frame
                     cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
@@ -265,7 +286,8 @@ def process_video_with_model(file_path):
                 "result_image": encode_image(results[sample_frame_index]),  # Sample frame from result
                 "intermediate_images": intermediate_images,
                 "detected_plates": list(set(all_extracted_texts)),  # Remove duplicates
-                "license_plate": all_extracted_texts[0] if all_extracted_texts else "Unknown"
+                "license_plate": all_extracted_texts[0] if all_extracted_texts else "Unknown",
+                "text_candidates": frame_candidates[0] if frame_candidates else []  # Ensure this is a direct array, not nested
             }
 
             return result

@@ -57,13 +57,14 @@ async def realtime_detection(websocket: WebSocket):
                         # Extract plate region
                         plate_region = frame[y1:y2, x1:x2]
                         if plate_region.size > 0:
-                            # Extract text from plate
-                            plate_text = extract_text_from_plate(plate_region)
+                            # Extract text from plate with candidates
+                            plate_text, text_candidates = extract_text_from_plate(plate_region)
                             
                             results.append({
                                 'bbox': [x1, y1, x2, y2],
                                 'confidence': float(scores[i]),
-                                'text': plate_text if plate_text else ''
+                                'text': plate_text if plate_text else '',
+                                'text_candidates': text_candidates[:10]  # Include top 10 candidates
                             })
                 
                 # Send results back to client
@@ -81,4 +82,4 @@ async def realtime_detection(websocket: WebSocket):
     except Exception as e:
         print(f"WebSocket error: {str(e)}")
     finally:
-        await websocket.close() 
+        await websocket.close()

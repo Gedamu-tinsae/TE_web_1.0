@@ -408,6 +408,43 @@ body, html {
   background: rgba(56, 50, 90, 0.5);
 }
 
+.text-candidates {
+  margin-top: 15px;
+  border: 1px solid #444;
+  padding: 10px;
+  border-radius: 5px;
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.candidates-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  color: #fff;
+  font-size: 0.9em;
+}
+
+.candidates-table th,
+.candidates-table td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid #555;
+}
+
+.candidates-table th {
+  background-color: rgba(0, 0, 0, 0.4);
+  color: #aaa;
+}
+
+.best-candidate {
+  background-color: rgba(0, 128, 0, 0.2);
+  font-weight: bold;
+}
+
+.candidates-table tr:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
 
 
 
