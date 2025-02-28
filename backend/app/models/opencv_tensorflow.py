@@ -6,10 +6,41 @@ import imutils
 import logging
 import json
 import base64
+import re
+from difflib import SequenceMatcher
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Define common license plate patterns
+LICENSE_PATTERNS = [
+    # Format: AB11 ABC
+    r'^[A-Z]{2}\d{2}\s?[A-Z]{3}$',
+    # Format: ABCDE
+    r'^[A-Z]{5}$', 
+    # Format: AB11 AB11
+    r'^[A-Z]{2}\d{2}\s?[A-Z]{2}\d{2}$',
+    # Format: 11 AB 1C 1111
+    r'^\d{2}\s?[A-Z]{2}\s?\d{1}[A-Z]{1}\s?\d{4}$',
+    # Additional common formats
+    r'^[A-Z]{1,3}\d{1,4}$',  # Format: ABC1234
+    r'^\d{1,4}[A-Z]{1,3}$',  # Format: 1234ABC
+    r'^[A-Z]{2}\d{2}[A-Z]{2}$',  # Format: AB12CD
+    r'^[A-Z]{3}\d{3}$',  # Format: ABC123
+    r'^[A-Z]{2}\d{3}[A-Z]{2}$',  # Format: AB123CD
+    r'^COVID\d{2}$',  # Special case for COVID19
+]
+
+def matches_pattern(text):
+    """Check if text matches any of the common license plate patterns."""
+    # Clean text for pattern matching (remove spaces)
+    cleaned_text = ''.join(text.split())
+    
+    for pattern in LICENSE_PATTERNS:
+        if re.match(pattern, cleaned_text):
+            return True, pattern
+    return False, None
 
 def ensure_dirs():
     """Ensure all required directories exist"""
@@ -76,9 +107,9 @@ def process_image(file_path):
             cropped_image = gray[x1:x2+1, y1:y2+1]
             logger.info("License plate region extracted")
 
-            # Use EasyOCR to read the text from the license plate with confidence scores
+            # Use EasyOCR to read the text with enhanced detail
             reader = easyocr.Reader(['en'])
-            result = reader.readtext(cropped_image, allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+            result = reader.readtext(cropped_image, detail=1, allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
             
             # Process and store all text candidates with confidence
             text_candidates = []
@@ -86,11 +117,124 @@ def process_image(file_path):
                 for detection in result:
                     bbox, text, confidence = detection
                     # Clean the text (remove unwanted characters, spaces)
-                    text = ''.join(c for c in text if c.isalnum())
-                    if text:
+                    cleaned_text = ''.join(c for c in text if c.isalnum())
+                    
+                    if cleaned_text:
+                        # Define character similarity mappings for suggestions
+                        char_similarity = {
+                            '0': ['O', 'D', 'Q', '8', 'C'],
+                            '1': ['I', 'L', 'T', '7', 'J'],
+                            '2': ['Z', 'S', '7', 'R'],
+                            '3': ['8', 'B', 'E', 'S'],
+                            '4': ['A', 'H', 'M', 'N'],
+                            '5': ['S', '6', 'G', 'B'],
+                            '6': ['G', 'C', 'B', '8'],
+                            '7': ['T', '1', 'L', 'Y'],
+                            '8': ['B', '6', '3', 'S', '0'],
+                            '9': ['G', 'Q', 'D', 'P'],
+                            'A': ['4', 'H', 'M', 'N', 'V'],
+                            'B': ['8', '3', 'R', 'S', 'D'],
+                            'C': ['G', 'O', 'Q', '0', 'D'],
+                            'D': ['O', '0', 'Q', 'C', 'B'],
+                            'E': ['F', 'B', '3', 'R', 'M'],
+                            'G': ['C', '6', 'Q', 'O', '0'],
+                            'H': ['N', 'M', 'K', 'A', 'X'],
+                            'I': ['1', 'L', 'T', 'J', '!'],
+                            'J': ['I', 'L', '1', 'T', 'U'],
+                            'K': ['X', 'H', 'R', 'N', 'M'],
+                            'L': ['I', '1', 'T', 'J', 'F'],
+                            'M': ['N', 'H', 'A', 'W', 'K'],
+                            'N': ['M', 'H', 'K', 'A', 'X'],
+                            'O': ['0', 'Q', 'D', 'C', 'G'],
+                            'P': ['R', 'F', 'D', '9', 'B'],
+                            'Q': ['O', '0', 'G', 'D', '9'],
+                            'R': ['B', 'P', 'F', 'K', '2'],
+                            'S': ['5', '2', '8', 'B', 'Z'],
+                            'T': ['1', 'I', 'L', '7', 'Y'],
+                            'U': ['V', 'Y', 'W', 'J', 'O'],
+                            'V': ['U', 'Y', 'W', 'A', 'N'],
+                            'W': ['M', 'N', 'V', 'U', 'H'],
+                            'X': ['K', 'H', 'N', 'M', 'Y'],
+                            'Y': ['V', 'U', 'T', '7', 'X'],
+                            'Z': ['2', 'S', '7', 'N', 'M']
+                        }
+                        
+                        # For each detected text, analyze characters individually
+                        # Create a blank mask to highlight the text region
+                        mask = np.zeros(cropped_image.shape, dtype=np.uint8)
+                        cv2.rectangle(mask, (int(bbox[0][0]), int(bbox[0][1])), 
+                                     (int(bbox[2][0]), int(bbox[2][1])), 255, -1)
+                        text_region = cv2.bitwise_and(cropped_image, mask)
+                        
+                        # Process character-level confidences with alternatives
+                        char_positions = []
+                        
+                        for i, char in enumerate(cleaned_text):
+                            # Create a list of candidate characters for this position
+                            candidates = []
+                            
+                            # Add the primary character (from the detected text)
+                            candidates.append({
+                                "char": char,
+                                "confidence": float(confidence)
+                            })
+                            
+                            # Add similar characters based on the mapping
+                            if char in char_similarity:
+                                for similar_char in char_similarity[char]:
+                                    # Add with decreasing confidence
+                                    similarity_factor = 0.8 - 0.1 * char_similarity[char].index(similar_char)
+                                    candidates.append({
+                                        "char": similar_char,
+                                        "confidence": float(confidence) * similarity_factor
+                                    })
+                            
+                            # Try to get position-specific OCR if possible
+                            try:
+                                # Get more detailed character detection
+                                if len(text_region.shape) > 0:
+                                    width = text_region.shape[1]
+                                    char_width = width // len(cleaned_text)
+                                    start_x = max(0, i * char_width - 2)
+                                    end_x = min(width, (i + 1) * char_width + 2)
+                                    if end_x > start_x:
+                                        char_img = text_region[:, start_x:end_x]
+                                        char_results = reader.readtext(char_img, detail=1, 
+                                                                     allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+                                        
+                                        # Add any new character detections
+                                        seen_chars = {candidate["char"] for candidate in candidates}
+                                        for char_det in char_results:
+                                            detected_char = char_det[1].strip()
+                                            if detected_char and len(detected_char) == 1 and detected_char not in seen_chars:
+                                                candidates.append({
+                                                    "char": detected_char,
+                                                    "confidence": float(char_det[2])
+                                                })
+                                                seen_chars.add(detected_char)
+                            except Exception as e:
+                                logger.error(f"Error in character OCR: {e}")
+                            
+                            # Sort by confidence and keep top 5
+                            candidates.sort(key=lambda x: x["confidence"], reverse=True)
+                            candidates = candidates[:5]
+                            
+                            # Add to character positions
+                            char_positions.append({
+                                "position": i,
+                                "candidates": candidates
+                            })
+                        
+                        # Check if text matches any common license plate pattern
+                        pattern_match, matching_pattern = matches_pattern(cleaned_text)
+                        pattern_boost = 0.1 if pattern_match else 0.0
+                        
+                        # Add to main text candidates
                         text_candidates.append({
-                            "text": text,
-                            "confidence": float(confidence)
+                            "text": cleaned_text,
+                            "confidence": float(confidence) + pattern_boost,
+                            "pattern_match": pattern_match,
+                            "char_positions": char_positions
                         })
                 
                 # Sort by confidence (highest first)
@@ -100,7 +244,12 @@ def process_image(file_path):
                 license_plate = text_candidates[0]["text"] if text_candidates else "Unknown"
             else:
                 license_plate = "Unknown"
-                text_candidates.append({"text": "Unknown", "confidence": 0.0})
+                text_candidates.append({
+                    "text": "Unknown", 
+                    "confidence": 0.0,
+                    "pattern_match": False,
+                    "char_positions": []
+                })
                 
             logger.info(f"License plate text extracted: {license_plate}")
 

@@ -28,6 +28,13 @@ const HomePage = () => {
   const startTimeRef = useRef(null);
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
 
+  // Helper function to determine the confidence class for a character
+  const getConfidenceClass = (confidence) => {
+    if (confidence >= 0.7) return 'high-confidence';
+    if (confidence >= 0.4) return 'medium-confidence';
+    return 'low-confidence';
+  };
+
   useEffect(() => {
     let interval;
     if (isProcessing) {
@@ -332,7 +339,7 @@ const HomePage = () => {
                       <p><strong>Status:</strong> {processingInfo.status}</p>
                       <p><strong>Result URL:</strong> <a href={processingInfo.result_url} target="_blank" rel="noopener noreferrer">{processingInfo.result_url}</a></p>
                       
-                      {/* Fix the text candidates section to handle different structures */}
+                      {/* Enhanced text candidates section */}
                       {processingInfo.text_candidates && (
                         <div className="text-candidates">
                           <h4>Possible License Plate Texts:</h4>
@@ -342,6 +349,7 @@ const HomePage = () => {
                                 <th>Rank</th>
                                 <th>Text</th>
                                 <th>Confidence</th>
+                                <th>Pattern Match</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -351,6 +359,7 @@ const HomePage = () => {
                                       <td>{index + 1}</td>
                                       <td>{candidate.text}</td>
                                       <td>{(candidate.confidence * 100).toFixed(2)}%</td>
+                                      <td>{candidate.pattern_match ? '✓' : '✗'}</td>
                                     </tr>
                                   ))
                                 : processingInfo.text_candidates.map((candidate, index) => (
@@ -358,46 +367,79 @@ const HomePage = () => {
                                       <td>{index + 1}</td>
                                       <td>{candidate.text}</td>
                                       <td>{(candidate.confidence * 100).toFixed(2)}%</td>
+                                      <td>{candidate.pattern_match ? '✓' : '✗'}</td>
                                     </tr>
                                   ))
                               }
                             </tbody>
                           </table>
+                          
+                          {/* New section for per-character confidence */}
+                          {processingInfo.text_candidates && processingInfo.text_candidates.length > 0 && (
+                            <div className="char-confidence-section">
+                              <h4>Character-by-Character Analysis (Best Candidate):</h4>
+                              <div className="char-positions-container">
+                                {(() => {
+                                  // Get the best candidate's character positions data
+                                  const bestCandidate = Array.isArray(processingInfo.text_candidates[0]) 
+                                    ? processingInfo.text_candidates[0][0] 
+                                    : processingInfo.text_candidates[0];
+                                
+                                  // Check if we have character positions with multiple candidates
+                                  const charPositions = bestCandidate?.char_positions || [];
+                                
+                                  if (charPositions.length === 0 && bestCandidate?.text) {
+                                    // If no detailed character data, create a basic display
+                                    return bestCandidate.text.split('').map((char, idx) => (
+                                      <div key={idx} className="char-position">
+                                        <div className={`char-box ${getConfidenceClass(bestCandidate.confidence)}`}>
+                                          <div className="char">{char}</div>
+                                          <div className="char-conf">{(bestCandidate.confidence * 100).toFixed(0)}%</div>
+                                        </div>
+                                        <div className="alternatives-spacer"></div>
+                                      </div>
+                                    ));
+                                  }
+                                
+                                  // Display each character position with alternatives
+                                  return charPositions.map((position, idx) => (
+                                    <div key={idx} className="char-position">
+                                      {/* Main character (best candidate for this position) */}
+                                      {position.candidates && position.candidates.length > 0 && (
+                                        <>
+                                          <div 
+                                            className={`char-box ${getConfidenceClass(position.candidates[0].confidence)}`}
+                                            title={`Confidence: ${(position.candidates[0].confidence * 100).toFixed(2)}%`}
+                                          >
+                                            <div className="char">{position.candidates[0].char}</div>
+                                            <div className="char-conf">{(position.candidates[0].confidence * 100).toFixed(0)}%</div>
+                                          </div>
+                                          
+                                          {/* Alternative characters */}
+                                          <div className="char-alternatives">
+                                            {position.candidates.slice(1).map((candidate, altIdx) => (
+                                              <div 
+                                                key={altIdx}
+                                                className={`alt-char-box ${getConfidenceClass(candidate.confidence)}`}
+                                                title={`Alternative ${altIdx+1}: ${candidate.char} (${(candidate.confidence * 100).toFixed(2)}%)`}
+                                              >
+                                                <div className="alt-char">{candidate.char}</div>
+                                                <div className="alt-char-conf">{(candidate.confidence * 100).toFixed(0)}%</div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                  ));
+                                })()}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                       
-                      <p><strong>Visit History:</strong> this could be the cars visit history to the company</p>
-                      {processingInfo.customer_data && (
-                        <div className="customer-data">
-                          <h4>Customer Data:</h4>
-                          <table>
-                            <thead>
-                              <tr>
-                                <th>CustomerID</th>
-                                <th>FirstName</th>
-                                <th>LastName</th>
-                                <th>Email</th>
-                                <th>Phone</th>
-                                <th>City</th>
-                                <th>Country</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {processingInfo.customer_data.map((customer, index) => (
-                                <tr key={index}>
-                                  <td>{customer.CustomerID}</td>
-                                  <td>{customer.FirstName}</td>
-                                  <td>{customer.LastName}</td>
-                                  <td>{customer.Email}</td>
-                                  <td>{customer.Phone}</td>
-                                  <td>{customer.City}</td>
-                                  <td>{customer.Country}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
+                      {/* ...existing code... */}
                     </div>
                   )}
                 </div>
@@ -447,14 +489,14 @@ const HomePage = () => {
             <span className="tooltip">Real-Time Detection</span>
           </button>
         </div>
-        <div className="dropdown-container"> {/* Add dropdown container */}
+        <div className="dropdown-container">
           <div className="icon-container" onClick={handleReloadClick}>
             <img src={reloadIcon} alt="Option Icon" className="dropdown-icon" />
           </div>
           <select id="options" value={selectedOption} onChange={handleOptionChange}>
             <option value=""></option>
-            <option value="opencv">OpenCV</option> {/* Add OpenCV option */}
-            <option value="tensorflow">TensorFlow</option> {/* Add TensorFlow option */}
+            <option value="opencv">OpenCV</option>
+            <option value="tensorflow">TensorFlow</option>
           </select>
         </div>
       </div>

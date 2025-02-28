@@ -1,5 +1,5 @@
 from fastapi import APIRouter, WebSocket
-from ...models.tensorflow_model import model, reader, extract_text_from_plate
+from ...models.tensorflow_model import model, reader, extract_text_from_plate, matches_pattern
 import cv2
 import numpy as np
 import base64
@@ -57,14 +57,20 @@ async def realtime_detection(websocket: WebSocket):
                         # Extract plate region
                         plate_region = frame[y1:y2, x1:x2]
                         if plate_region.size > 0:
-                            # Extract text from plate with candidates
+                            # Extract text from plate with candidates and pattern matching
                             plate_text, text_candidates = extract_text_from_plate(plate_region)
+                            
+                            # Check if best text matches any pattern
+                            pattern_match = False
+                            if text_candidates and len(text_candidates) > 0:
+                                pattern_match = text_candidates[0].get("pattern_match", False)
                             
                             results.append({
                                 'bbox': [x1, y1, x2, y2],
                                 'confidence': float(scores[i]),
                                 'text': plate_text if plate_text else '',
-                                'text_candidates': text_candidates[:10]  # Include top 10 candidates
+                                'text_candidates': text_candidates[:5],  # Include top 5 candidates
+                                'pattern_match': pattern_match
                             })
                 
                 # Send results back to client
