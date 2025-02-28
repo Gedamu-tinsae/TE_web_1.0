@@ -336,6 +336,9 @@ const HomePage = () => {
                     <div className="processing-info">
                       <p><strong>Filename:</strong> {processingInfo.filename}</p>
                       <p><strong>License Plate:</strong> {processingInfo.license_plate}</p>
+                      {processingInfo.original_ocr && (
+                        <p><strong>Original OCR Detection:</strong> {processingInfo.original_ocr}</p>
+                      )}
                       <p><strong>Status:</strong> {processingInfo.status}</p>
                       <p><strong>Result URL:</strong> <a href={processingInfo.result_url} target="_blank" rel="noopener noreferrer">{processingInfo.result_url}</a></p>
                       
@@ -350,24 +353,33 @@ const HomePage = () => {
                                 <th>Text</th>
                                 <th>Confidence</th>
                                 <th>Pattern Match</th>
+                                <th>Description</th> {/* New column for description */}
                               </tr>
                             </thead>
                             <tbody>
                               {Array.isArray(processingInfo.text_candidates[0]) 
                                 ? processingInfo.text_candidates[0].map((candidate, index) => (
-                                    <tr key={index} className={index === 0 ? 'best-candidate' : ''}>
+                                    <tr key={index} className={
+                                      candidate.pattern_name === "Original OCR" ? 'original-candidate' :
+                                      index === 0 ? 'best-candidate' : ''
+                                    }>
                                       <td>{index + 1}</td>
                                       <td>{candidate.text}</td>
                                       <td>{(candidate.confidence * 100).toFixed(2)}%</td>
                                       <td>{candidate.pattern_match ? '✓' : '✗'}</td>
+                                      <td>{candidate.pattern_name || ""}</td>
                                     </tr>
                                   ))
                                 : processingInfo.text_candidates.map((candidate, index) => (
-                                    <tr key={index} className={index === 0 ? 'best-candidate' : ''}>
+                                    <tr key={index} className={
+                                      candidate.pattern_name === "Original OCR" ? 'original-candidate' :
+                                      index === 0 ? 'best-candidate' : ''
+                                    }>
                                       <td>{index + 1}</td>
                                       <td>{candidate.text}</td>
                                       <td>{(candidate.confidence * 100).toFixed(2)}%</td>
                                       <td>{candidate.pattern_match ? '✓' : '✗'}</td>
+                                      <td>{candidate.pattern_name || ""}</td>
                                     </tr>
                                   ))
                               }

@@ -1,10 +1,16 @@
 from fastapi import APIRouter, WebSocket
-from ...models.tensorflow_model import model, reader, extract_text_from_plate, matches_pattern
 import cv2
 import numpy as np
 import base64
 import json
 import tensorflow as tf
+import logging
+import asyncio
+from ...models.tensorflow_model import model
+from ...models.plate_correction import extract_text_from_plate
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -57,20 +63,15 @@ async def realtime_detection(websocket: WebSocket):
                         # Extract plate region
                         plate_region = frame[y1:y2, x1:x2]
                         if plate_region.size > 0:
-                            # Extract text from plate with candidates and pattern matching
-                            plate_text, text_candidates = extract_text_from_plate(plate_region)
-                            
-                            # Check if best text matches any pattern
-                            pattern_match = False
-                            if text_candidates and len(text_candidates) > 0:
-                                pattern_match = text_candidates[0].get("pattern_match", False)
+                            # Extract text from plate with candidates using our centralized function
+                            plate_text, text_candidates = extract_text_from_plate(plate_region, preprocessing_level='minimal')
                             
                             results.append({
                                 'bbox': [x1, y1, x2, y2],
                                 'confidence': float(scores[i]),
-                                'text': plate_text if plate_text else '',
-                                'text_candidates': text_candidates[:5],  # Include top 5 candidates
-                                'pattern_match': pattern_match
+                                'text': plate_text,
+                                'text_candidates': text_candidates[:3],  # Include top 3 for realtime (performance)
+                                'pattern_match': text_candidates[0].get("pattern_match", False) if text_candidates else False
                             })
                 
                 # Send results back to client
@@ -79,13 +80,20 @@ async def realtime_detection(websocket: WebSocket):
                     'detections': results
                 })
                 
+                # Add a small delay to prevent overwhelming the client
+                await asyncio.sleep(0.05)
+                
             except Exception as e:
+                logger.error(f"Error in realtime detection: {e}")
                 await websocket.send_json({
                     'success': False,
                     'error': str(e)
                 })
                 
     except Exception as e:
-        print(f"WebSocket error: {str(e)}")
+        logger.error(f"WebSocket error: {str(e)}")
     finally:
-        await websocket.close()
+        try:
+            await websocket.close()
+        except:
+            pass

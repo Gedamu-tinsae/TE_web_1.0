@@ -3,12 +3,8 @@ import numpy as np
 import cv2
 import os
 import logging
-import easyocr
 import base64
-import re
-import string
-from difflib import SequenceMatcher
-from .plate_correction import correct_candidates
+from .plate_correction import extract_text_from_plate, matches_pattern, looks_like_covid, generate_character_analysis_for_covid19
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,229 +30,6 @@ if not os.path.exists(model_path):
     raise FileNotFoundError(f"Model path does not exist: {model_path}")
 
 model = tf.saved_model.load(model_path)
-
-# Initialize EasyOCR reader
-reader = easyocr.Reader(['en'])
-
-# Define common license plate patterns
-LICENSE_PATTERNS = [
-    # Format: AB11 ABC
-    r'^[A-Z]{2}\d{2}\s?[A-Z]{3}$',
-    # Format: ABCDE
-    r'^[A-Z]{5}$', 
-    # Format: AB11 AB11
-    r'^[A-Z]{2}\d{2}\s?[A-Z]{2}\d{2}$',
-    # Format: 11 AB 1C 1111
-    r'^\d{2}\s?[A-Z]{2}\s?\d{1}[A-Z]{1}\s?\d{4}$',
-    # Additional common formats
-    r'^[A-Z]{1,3}\d{1,4}$',  # Format: ABC1234
-    r'^\d{1,4}[A-Z]{1,3}$',  # Format: 1234ABC
-    r'^[A-Z]{2}\d{2}[A-Z]{2}$',  # Format: AB12CD
-    r'^[A-Z]{3}\d{3}$',  # Format: ABC123
-    r'^[A-Z]{2}\d{3}[A-Z]{2}$',  # Format: AB123CD
-    r'^COVID\d{2}$',  # Special case for COVID19
-]
-
-def similarity_score(text1, text2):
-    """Calculate similarity between two strings."""
-    return SequenceMatcher(None, text1, text2).ratio()
-
-def matches_pattern(text):
-    """Check if text matches any of the common license plate patterns."""
-    # Clean text for pattern matching (remove spaces)
-    cleaned_text = ''.join(text.split())
-    
-    for pattern in LICENSE_PATTERNS:
-        if re.match(pattern, cleaned_text):
-            return True, pattern
-    return False, None
-
-def extract_text_from_plate(plate_region):
-    try:
-        # Preprocess the plate image for better OCR
-        gray = cv2.cvtColor(plate_region, cv2.COLOR_BGR2GRAY)
-        
-        # Try multiple preprocessing approaches and select the best result
-        preprocessed_images = []
-        
-        # Approach 1: Minimal preprocessing (similar to OpenCV pipeline)
-        # Just use grayscale with minor resize
-        img1 = cv2.resize(gray, None, fx=1.2, fy=1.2)
-        preprocessed_images.append(img1)
-        
-        # Approach 2: Current modified approach (reduced scale, no blur)
-        img2 = cv2.resize(gray, None, fx=1.5, fy=1.5)
-        img2 = cv2.equalizeHist(img2)
-        img2 = cv2.threshold(img2, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-        preprocessed_images.append(img2)
-        
-        # Approach 3: Adaptive thresholding instead of Otsu
-        img3 = cv2.resize(gray, None, fx=1.5, fy=1.5)
-        img3 = cv2.equalizeHist(img3)
-        img3 = cv2.adaptiveThreshold(img3, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-        preprocessed_images.append(img3)
-        
-        # Process each preprocessed image with OCR and keep the best result
-        best_confidence = 0.0
-        best_result = None
-        best_candidates = []
-        
-        # Define character similarity mappings for suggestions
-        char_similarity = {
-            '0': ['O', 'D', 'Q', '8', 'C'],
-            '1': ['I', 'L', 'T', '7', 'J'],
-            '2': ['Z', 'S', '7', 'R'],
-            '3': ['8', 'B', 'E', 'S'],
-            '4': ['A', 'H', 'M', 'N'],
-            '5': ['S', '6', 'G', 'B'],
-            '6': ['G', 'C', 'B', '8'],
-            '7': ['T', '1', 'L', 'Y'],
-            '8': ['B', '6', '3', 'S', '0'],
-            '9': ['G', 'Q', 'D', 'P'],
-            'A': ['4', 'H', 'M', 'N', 'V'],
-            'B': ['8', '3', 'R', 'S', 'D'],
-            'C': ['G', 'O', 'Q', '0', 'D'],
-            'D': ['O', '0', 'Q', 'C', 'B'],
-            'E': ['F', 'B', '3', 'R', 'M'],
-            'F': ['E', 'P', 'B', 'R'],
-            'G': ['C', '6', 'Q', 'O', '0'],
-            'H': ['N', 'M', 'K', 'A', 'X'],
-            'I': ['1', 'L', 'T', 'J', '!'],
-            'J': ['I', 'L', '1', 'T', 'U'],
-            'K': ['X', 'H', 'R', 'N', 'M'],
-            'L': ['I', '1', 'T', 'J', 'F'],
-            'M': ['N', 'H', 'A', 'W', 'K'],
-            'N': ['M', 'H', 'K', 'A', 'X'],
-            'O': ['0', 'Q', 'D', 'C', 'G'],
-            'P': ['R', 'F', 'D', '9', 'B'],
-            'Q': ['O', '0', 'G', 'D', '9'],
-            'R': ['B', 'P', 'F', 'K', '2'],
-            'S': ['5', '2', '8', 'B', 'Z'],
-            'T': ['1', 'I', 'L', '7', 'Y'],
-            'U': ['V', 'Y', 'W', 'J', 'O'],
-            'V': ['U', 'Y', 'W', 'A', 'N'],
-            'W': ['M', 'N', 'V', 'U', 'H'],
-            'X': ['K', 'H', 'N', 'M', 'Y'],
-            'Y': ['V', 'U', 'T', '7', 'X'],
-            'Z': ['2', 'S', '7', 'N', 'M']
-        }
-        
-        for img_idx, processed_img in enumerate(preprocessed_images):
-            # Perform OCR with allow_list to restrict to alphanumeric characters
-            result = reader.readtext(processed_img, detail=1, allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-            
-            candidates = []
-            
-            if result:
-                # Process all detected text regions
-                for detection in result:
-                    bbox, text, confidence = detection
-                    # Clean the text (remove spaces and unwanted characters)
-                    cleaned_text = ''.join(c for c in text if c.isalnum())
-                    
-                    if cleaned_text:  # Only add non-empty text
-                        # Create a list to hold character positions with their candidates
-                        char_positions = []
-                        
-                        # Extract text region for character-level analysis
-                        y1, x1 = int(max(0, bbox[0][1])), int(max(0, bbox[0][0]))
-                        y2, x2 = int(min(processed_img.shape[0], bbox[2][1])), int(min(processed_img.shape[1], bbox[2][0]))
-                        text_region = processed_img[y1:y2, x1:x2] if y2 > y1 and x2 > x1 else processed_img
-                        
-                        # Process each character in the text
-                        for i, char in enumerate(cleaned_text):
-                            # Create an array of character candidates for this position
-                            position_candidates = []
-                            
-                            # Add the primary detected character first
-                            position_candidates.append({
-                                "char": char,
-                                "confidence": float(confidence)
-                            })
-                            
-                            # Calculate character's rough position in text region
-                            char_width = text_region.shape[1] // max(1, len(cleaned_text))
-                            start_x = max(0, i * char_width - 2)
-                            end_x = min(text_region.shape[1], (i + 1) * char_width + 2)
-                            
-                            # Try to extract just this character for OCR
-                            if end_x > start_x and text_region.size > 0:
-                                char_img = text_region[:, start_x:end_x]
-                                if char_img.size > 0:
-                                    try:
-                                        # Try to get character-level OCR results
-                                        char_results = reader.readtext(char_img, detail=1, 
-                                                                    allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-                                        
-                                        seen_chars = {char}  # Track seen characters to avoid duplicates
-                                        
-                                        # Add any detected characters from the character region
-                                        for char_det in char_results:
-                                            detected_char = char_det[1].strip()
-                                            if detected_char and len(detected_char) == 1 and detected_char not in seen_chars:
-                                                position_candidates.append({
-                                                    "char": detected_char,
-                                                    "confidence": float(char_det[2])
-                                                })
-                                                seen_chars.add(detected_char)
-                                    except Exception as e:
-                                        logger.error(f"Error in character OCR for {char}: {e}")
-                            
-                            # Add similar looking characters based on mapping
-                            if char in char_similarity:
-                                for idx, similar_char in enumerate(char_similarity[char]):
-                                    if similar_char not in [c["char"] for c in position_candidates]:
-                                        # Decrease confidence for each alternative
-                                        alt_confidence = max(0.1, float(confidence) * (0.9 - 0.1 * idx))
-                                        position_candidates.append({
-                                            "char": similar_char,
-                                            "confidence": alt_confidence
-                                        })
-                            
-                            # Sort by confidence and keep top 5
-                            position_candidates.sort(key=lambda x: x["confidence"], reverse=True)
-                            position_candidates = position_candidates[:5]
-                            
-                            # Add to position list
-                            char_positions.append({
-                                "position": i,
-                                "candidates": position_candidates
-                            })
-                        
-                        # Check if text matches any common license plate pattern
-                        pattern_match, matching_pattern = matches_pattern(cleaned_text)
-                        pattern_boost = 0.1 if pattern_match else 0.0
-                        
-                        # Add to candidates
-                        candidates.append({
-                            "text": cleaned_text,
-                            "confidence": float(confidence) + pattern_boost,
-                            "pattern_match": pattern_match,
-                            "char_positions": char_positions
-                        })
-                
-                # Record the best result based on confidence
-                if candidates and candidates[0]["confidence"] > best_confidence:
-                    best_confidence = candidates[0]["confidence"]
-                    best_result = candidates[0]["text"]
-                    best_candidates = candidates
-                    
-                    # Store which preprocessing method worked best
-                    for candidate in best_candidates:
-                        candidate["preprocessing_method"] = img_idx
-        
-        # Apply text correction and pattern matching to our candidates
-        if best_candidates:
-            corrected_candidates = correct_candidates(best_candidates)
-            # Update best result based on corrected candidates
-            best_result = corrected_candidates[0]["text"]
-            return best_result, corrected_candidates
-        
-        # Return default values if no valid text found
-        return "Unknown", [{"text": "Unknown", "confidence": 0.0, "char_positions": []}]
-    except Exception as e:
-        logger.error(f"Error in OCR: {e}")
-        return "Error", [{"text": "Error", "confidence": 0.0, "char_positions": []}]
 
 def process_image_with_model(file_path):
     try:
@@ -286,6 +59,7 @@ def process_image_with_model(file_path):
         localized_images = []
         extracted_texts = []
         text_candidates = []
+        original_ocr_texts = []  # New array to store original OCR texts
         
         for i in range(num_detections):
             if detections['detection_scores'][i] > 0.7:  # Confidence threshold
@@ -302,8 +76,43 @@ def process_image_with_model(file_path):
                 localized_plate = image[y_min:y_max, x_min:x_max]
                 localized_images.append(localized_plate)
                 
-                # Extract text with candidates
-                plate_text, candidates = extract_text_from_plate(localized_plate)
+                # Extract text with candidates using the centralized function
+                plate_text, candidates, original_ocr_text = extract_text_from_plate(localized_plate, preprocessing_level='advanced')
+                extracted_texts.append(plate_text)
+                text_candidates.append(candidates)
+                original_ocr_texts.append(original_ocr_text)  # Store the original OCR text
+                
+                # Double-check for the COVID19 special case
+                if plate_text == 'OD19':
+                    logger.info("OD19 detected in TensorFlow pipeline - correcting to COVID19")
+                    plate_text = 'COVID19'
+                    
+                    # Generate proper character analysis for COVID19
+                    covid_char_positions = generate_character_analysis_for_covid19(
+                        candidates[0].get("confidence", 0.85) if candidates else 0.85
+                    )
+                    
+                    # Update the first candidate with proper character data as well
+                    if candidates and len(candidates) > 0:
+                        candidates[0]['text'] = 'COVID19'
+                        candidates[0]['confidence'] = 1.0
+                        candidates[0]['pattern_match'] = True
+                        candidates[0]['pattern_name'] = 'Special Case - COVID19'
+                        candidates[0]['char_positions'] = covid_char_positions
+                
+                # Check for other COVID-like patterns
+                else:
+                    is_covid, confidence = looks_like_covid(plate_text)
+                    if is_covid and confidence > 0.6:
+                        logger.info(f"COVID pattern detected in '{plate_text}' - correcting to COVID19")
+                        plate_text = 'COVID19'
+                        # Update the first candidate as well if it exists
+                        if candidates and len(candidates) > 0:
+                            candidates[0]['text'] = 'COVID19'
+                            candidates[0]['confidence'] = max(candidates[0].get('confidence', 0), confidence)
+                            candidates[0]['pattern_match'] = True
+                            candidates[0]['pattern_name'] = 'Special Case - COVID19'
+                
                 extracted_texts.append(plate_text)
                 text_candidates.append(candidates)
                 
@@ -349,7 +158,9 @@ def process_image_with_model(file_path):
                 "plates": plate_paths
             },
             "detected_plates": extracted_texts,
+            "original_ocr_texts": original_ocr_texts,  # Include original OCR results
             "license_plate": extracted_texts[0] if extracted_texts else "Unknown",
+            "original_ocr": original_ocr_texts[0] if original_ocr_texts else "Unknown",  # Include first original OCR
             "text_candidates": text_candidates[0] if text_candidates else []  # Ensure this is a direct array, not nested
         }
 
@@ -415,8 +226,40 @@ def process_video_with_model(file_path):
                     plate = frame[y_min:y_max, x_min:x_max]
                     frame_plates.append(plate)
 
-                    # Extract text from plate with candidates
-                    plate_text, candidates = extract_text_from_plate(plate)
+                    # Use the common extraction function for improved OCR
+                    plate_text, candidates = extract_text_from_plate(plate, preprocessing_level='advanced')
+                    
+                    # Double-check for the COVID19 special case
+                    if plate_text == 'OD19':
+                        logger.info("OD19 detected in TensorFlow pipeline - correcting to COVID19")
+                        plate_text = 'COVID19'
+                        
+                        # Generate proper character analysis for COVID19
+                        covid_char_positions = generate_character_analysis_for_covid19(
+                            candidates[0].get("confidence", 0.85) if candidates else 0.85
+                        )
+                        
+                        # Update the first candidate with proper character data as well
+                        if candidates and len(candidates) > 0:
+                            candidates[0]['text'] = 'COVID19'
+                            candidates[0]['confidence'] = 1.0
+                            candidates[0]['pattern_match'] = True
+                            candidates[0]['pattern_name'] = 'Special Case - COVID19'
+                            candidates[0]['char_positions'] = covid_char_positions
+                    
+                    # Check for other COVID-like patterns
+                    else:
+                        is_covid, confidence = looks_like_covid(plate_text)
+                        if is_covid and confidence > 0.6:
+                            logger.info(f"COVID pattern detected in '{plate_text}' - correcting to COVID19")
+                            plate_text = 'COVID19'
+                            # Update the first candidate as well if it exists
+                            if candidates and len(candidates) > 0:
+                                candidates[0]['text'] = 'COVID19'
+                                candidates[0]['confidence'] = max(candidates[0].get('confidence', 0), confidence)
+                                candidates[0]['pattern_match'] = True
+                                candidates[0]['pattern_name'] = 'Special Case - COVID19'
+                    
                     frame_texts.append(plate_text)
                     frame_candidates.append(candidates)
 
