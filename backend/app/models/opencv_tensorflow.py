@@ -8,6 +8,7 @@ import json
 import base64
 import re
 from difflib import SequenceMatcher
+from .plate_correction import correct_candidates, matches_pattern
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -239,6 +240,9 @@ def process_image(file_path):
                 
                 # Sort by confidence (highest first)
                 text_candidates.sort(key=lambda x: x["confidence"], reverse=True)
+                
+                # Apply the correction algorithm to all candidates
+                text_candidates = correct_candidates(text_candidates)
                 
                 # Get the highest confidence text
                 license_plate = text_candidates[0]["text"] if text_candidates else "Unknown"

@@ -8,6 +8,7 @@ import base64
 import re
 import string
 from difflib import SequenceMatcher
+from .plate_correction import correct_candidates
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -244,9 +245,12 @@ def extract_text_from_plate(plate_region):
                     for candidate in best_candidates:
                         candidate["preprocessing_method"] = img_idx
         
-        # If we found valid text candidates, return them
+        # Apply text correction and pattern matching to our candidates
         if best_candidates:
-            return best_result, best_candidates
+            corrected_candidates = correct_candidates(best_candidates)
+            # Update best result based on corrected candidates
+            best_result = corrected_candidates[0]["text"]
+            return best_result, corrected_candidates
         
         # Return default values if no valid text found
         return "Unknown", [{"text": "Unknown", "confidence": 0.0, "char_positions": []}]
