@@ -7,6 +7,7 @@ import os
 import logging
 import cv2
 import numpy as np
+import base64
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -40,6 +41,9 @@ async def upload_file(file: UploadFile = File(...), low_visibility: bool = Form(
             hr.guided_filter()
             hr.recover()
             
+            # Get all intermediate images
+            dehaze_stages = hr.get_all_intermediate_images()
+            
             # Save dehazed image
             cv2.imwrite(dehazed_path, hr.dst)
             logger.info(f"Dehazed image saved at: {dehazed_path}")
@@ -50,6 +54,17 @@ async def upload_file(file: UploadFile = File(...), low_visibility: bool = Form(
             # Add dehazing info to result
             result["preprocessing"] = "dehazing_applied"
             result["original_path"] = file_path
+            
+            # Convert all intermediate dehazing images to base64
+            dehaze_intermediate_base64 = {}
+            for key, img in dehaze_stages.items():
+                _, buffer = cv2.imencode('.jpg', img)
+                dehaze_intermediate_base64[key] = base64.b64encode(buffer).decode('utf-8')
+            
+            # Add the dehazing intermediate images to the result
+            # This preserves the existing intermediate_images key
+            result["dehaze_stages"] = dehaze_intermediate_base64
+            
         else:
             # Process the image without dehazing
             result = process_image(file_path)

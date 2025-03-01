@@ -691,6 +691,38 @@ body, html {
   font-size: 0.9rem;
 }
 
+.dehaze-stages {
+  margin: 1rem 0;
+  padding: 1rem;
+  border-radius: 10px;
+  background: rgba(56, 50, 90, 0.3);
+}
+
+.dehaze-stages h3 {
+  color: #1e90ff;
+  margin-bottom: 1rem;
+}
+
+.dehaze-stages p {
+  color: white;
+  margin: 0.5rem 0;
+}
+
+.dehaze-stages img {
+  max-width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+  margin-bottom: 1.5rem;
+}
+
+/* Add labels to the dehaze stages */
+.dehaze-stages p strong {
+  display: inline-block;
+  background-color: rgba(30, 144, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
 
 
 

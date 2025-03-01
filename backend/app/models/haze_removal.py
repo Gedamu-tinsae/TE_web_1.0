@@ -2,9 +2,10 @@ import PIL.Image as Image
 import skimage.io as io
 import numpy as np
 import time
-from .gf import guided_filter  # Change this line to use relative import
+from .gf import guided_filter
 from numba import njit
 import matplotlib.pyplot as plt
+import cv2
 
 
 @njit
@@ -111,6 +112,39 @@ class HazeRemoval(object):
         cv2.imwrite("img/dst.jpg", self.dst[:, :, (2, 1, 0)])
 
         io.imsave("test.jpg", self.dst)
+
+    def get_all_intermediate_images(self):
+        """Get all intermediate images for visualization in the frontend"""
+        intermediate_images = {}
+        
+        # Original hazy image
+        intermediate_images["original"] = (self.src * 255).astype(np.uint8)
+        
+        # Dark channel
+        dark_vis = (self.dark * 255).astype(np.uint8)
+        # Convert to 3-channel if it's single channel
+        if len(dark_vis.shape) == 2:
+            dark_vis = cv2.cvtColor(dark_vis, cv2.COLOR_GRAY2BGR)
+        intermediate_images["dark_channel"] = dark_vis
+        
+        # Transmission map
+        tran_vis = (self.tran * 255).astype(np.uint8)
+        if len(tran_vis.shape) == 2:
+            tran_vis = cv2.cvtColor(tran_vis, cv2.COLOR_GRAY2BGR)
+        intermediate_images["transmission"] = tran_vis
+        
+        # Refined transmission map
+        if hasattr(self, 'gtran'):
+            gtran_vis = (self.gtran * 255).astype(np.uint8)
+            if len(gtran_vis.shape) == 2:
+                gtran_vis = cv2.cvtColor(gtran_vis, cv2.COLOR_GRAY2BGR)
+            intermediate_images["refined_transmission"] = gtran_vis
+        
+        # Final dehazed result
+        if hasattr(self, 'dst'):
+            intermediate_images["dehazed"] = self.dst
+            
+        return intermediate_images
 
 
 if __name__ == '__main__':

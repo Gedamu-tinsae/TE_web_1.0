@@ -39,17 +39,30 @@ async def upload_image_tensorflow(file: UploadFile = File(...), low_visibility: 
             hr.guided_filter()
             hr.recover()
             
+            # Get all intermediate images
+            dehaze_stages = hr.get_all_intermediate_images()
+            
             # Save dehazed image
             cv2.imwrite(dehazed_path, hr.dst)
             logger.info(f"Dehazed image saved at: {dehazed_path}")
             
             # Process the dehazed image with the TensorFlow model
-            # Pass low_visibility=True to use a lower confidence threshold
             result = process_image_with_model(dehazed_path, confidence_threshold=0.6)
             
-            # Add dehazing info to result
+            # Add dehazing info and intermediate images to result
             result["preprocessing"] = "dehazing_applied"
             result["original_path"] = file_path
+            
+            # Convert all intermediate dehazing images to base64
+            import base64
+            dehaze_intermediate_base64 = {}
+            for key, img in dehaze_stages.items():
+                _, buffer = cv2.imencode('.jpg', img)
+                dehaze_intermediate_base64[key] = base64.b64encode(buffer).decode('utf-8')
+            
+            # Add the dehazing intermediate images to the result
+            result["dehaze_stages"] = dehaze_intermediate_base64
+            
         else:
             # Process the image with the TensorFlow model without dehazing
             result = process_image_with_model(file_path)

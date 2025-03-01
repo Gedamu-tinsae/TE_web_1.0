@@ -285,8 +285,32 @@ const HomePage = () => {
                   <button className="expand-btn" onClick={() => handleExpandClick('original')}>
                     <img src={expandIcon} alt="Expand Icon" style={{ width: '20px', height: '20px', filter: 'invert(100%) sepia(100%) saturate(0%) hue-rotate(60deg) brightness(100%) contrast(100%)' }} />
                   </button>
+                  
+                  {/* Add dehazing stages if present */}
+                  {processingInfo && processingInfo.dehaze_stages && (
+                    <div className="dehaze-stages">
+                      <h3>Dehazing Process</h3>
+                      <p><strong>Original Hazy Image:</strong></p>
+                      <img src={`data:image/jpeg;base64,${processingInfo.dehaze_stages.original}`} alt="Original Hazy" />
+                      
+                      <p><strong>Dark Channel:</strong></p>
+                      <img src={`data:image/jpeg;base64,${processingInfo.dehaze_stages.dark_channel}`} alt="Dark Channel" />
+                      
+                      <p><strong>Transmission Map:</strong></p>
+                      <img src={`data:image/jpeg;base64,${processingInfo.dehaze_stages.transmission}`} alt="Transmission Map" />
+                      
+                      <p><strong>Refined Transmission Map:</strong></p>
+                      <img src={`data:image/jpeg;base64,${processingInfo.dehaze_stages.refined_transmission}`} alt="Refined Transmission" />
+                      
+                      <p><strong>Dehazed Result:</strong></p>
+                      <img src={`data:image/jpeg;base64,${processingInfo.dehaze_stages.dehazed}`} alt="Dehazed Result" />
+                    </div>
+                  )}
+                  
+                  {/* Show OpenCV intermediate stages */}
                   {processingMethod === 'opencv' && intermediateImages && (
                     <div className="intermediate-images">
+                      <h3>OpenCV Pipeline</h3>
                       <p><strong>Gray Scale:</strong></p>
                       <img src={`data:image/jpeg;base64,${intermediateImages.gray}`} alt="Gray Scale" />
                       <p><strong>Edge Detection:</strong></p>
@@ -297,9 +321,12 @@ const HomePage = () => {
                       <img src={`data:image/jpeg;base64,${intermediateImages.plate}`} alt="License Plate" />
                     </div>
                   )}
+                  
+                  {/* Show TensorFlow intermediate stages */}
                   {processingMethod === 'tensorflow' && processingInfo && processingInfo.intermediate_steps && (
                     <div className="intermediate-images">
-                      <p><strong>Original Image:</strong></p>
+                      <h3>TensorFlow Pipeline</h3>
+                      <p><strong>Original Input Image:</strong></p>
                       <img src={`http://172.20.10.10:8000${processingInfo.intermediate_steps.original}`} alt="Original" />
                       <p><strong>Detection Result:</strong></p>
                       <img src={`http://172.20.10.10:8000${processingInfo.intermediate_steps.detection}`} alt="Detection" />
@@ -467,9 +494,9 @@ const HomePage = () => {
             <button className="play-btn" onClick={handlePlayClick}>Play Both Videos</button>
           )}
           <p>Processing time: {finalTime}</p>
-          <div className="dropdown-container">
-            <div className="icon-container" onClick={handleReloadClick}>
-              <img src={reloadIcon} alt="Option Icon" className="dropdown-icon" />
+          <div class="dropdown-container">
+            <div class="icon-container" onClick={handleReloadClick}>
+              <img src={reloadIcon} alt="Option Icon" class="dropdown-icon" />
             </div>
             <select id="options" value={selectedOption} onChange={handleOptionChange}>
               <option value=""></option>
