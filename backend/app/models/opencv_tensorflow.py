@@ -22,7 +22,7 @@ def ensure_dirs():
     for dir_path in dirs:
         os.makedirs(dir_path, exist_ok=True)
 
-def process_image(file_path):
+def process_image(file_path, confidence_threshold=0.7):
     try:
         ensure_dirs()
         # Load the image
@@ -54,10 +54,14 @@ def process_image(file_path):
                 location = approx
                 break
 
+        # If we're using a lower confidence threshold for low visibility images,
+        # we should also be more lenient with contour selection
+        min_contour_area = 50 if confidence_threshold < 0.7 else 100
+
         if location is None:
             logger.warning("No valid contour with 4 points found. Trying alternative method.")
             for contour in contours:
-                if cv2.contourArea(contour) > 100:  # Filter out small contours
+                if cv2.contourArea(contour) > min_contour_area:  # Use dynamic threshold
                     location = cv2.convexHull(contour)
                     break
 
@@ -166,7 +170,7 @@ def process_image(file_path):
         logger.error(f"Error processing image: {e}")
         raise
 
-def process_video(file_path):
+def process_video(file_path, confidence_threshold=0.7):
     try:
         ensure_dirs()
         cap = cv2.VideoCapture(file_path)
@@ -175,6 +179,9 @@ def process_video(file_path):
         frame_number = 0
         results = []
         max_frames = 40  # Limit the number of frames to process
+
+        # Use a dynamic threshold based on confidence_threshold
+        min_contour_area = 50 if confidence_threshold < 0.7 else 100
 
         while cap.isOpened() and frame_number < max_frames:
             ret, frame = cap.read()
@@ -201,7 +208,7 @@ def process_video(file_path):
             if location is None:
                 logger.warning("No valid contour with 4 points found. Trying alternative method.")
                 for contour in contours:
-                    if cv2.contourArea(contour) > 100:
+                    if cv2.contourArea(contour) > min_contour_area:  # Use dynamic threshold
                         location = cv2.convexHull(contour)
                         break
 

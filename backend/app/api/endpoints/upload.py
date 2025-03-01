@@ -44,8 +44,8 @@ async def upload_file(file: UploadFile = File(...), low_visibility: bool = Form(
             cv2.imwrite(dehazed_path, hr.dst)
             logger.info(f"Dehazed image saved at: {dehazed_path}")
             
-            # Process the dehazed image
-            result = process_image(dehazed_path)
+            # Process the dehazed image with a lower confidence threshold
+            result = process_image(dehazed_path, confidence_threshold=0.6)
             
             # Add dehazing info to result
             result["preprocessing"] = "dehazing_applied"

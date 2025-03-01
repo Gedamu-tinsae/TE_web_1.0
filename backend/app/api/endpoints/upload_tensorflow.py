@@ -44,7 +44,8 @@ async def upload_image_tensorflow(file: UploadFile = File(...), low_visibility: 
             logger.info(f"Dehazed image saved at: {dehazed_path}")
             
             # Process the dehazed image with the TensorFlow model
-            result = process_image_with_model(dehazed_path)
+            # Pass low_visibility=True to use a lower confidence threshold
+            result = process_image_with_model(dehazed_path, confidence_threshold=0.6)
             
             # Add dehazing info to result
             result["preprocessing"] = "dehazing_applied"
@@ -71,8 +72,9 @@ async def upload_video_tensorflow(file: UploadFile = File(...), low_visibility: 
         logger.info(f"Video uploaded successfully: {file_path}")
 
         # Process the video with the TensorFlow model
-        # Note: For video, we'll pass the low_visibility flag to the model function
-        result = process_video_with_model(file_path, low_visibility=low_visibility)
+        # Pass a lower confidence threshold for low visibility
+        confidence_threshold = 0.6 if low_visibility else 0.7
+        result = process_video_with_model(file_path, low_visibility=low_visibility, confidence_threshold=confidence_threshold)
 
         return JSONResponse(content=result)
     except Exception as e:

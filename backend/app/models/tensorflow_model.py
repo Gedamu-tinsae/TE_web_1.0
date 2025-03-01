@@ -31,7 +31,7 @@ if not os.path.exists(model_path):
 
 model = tf.saved_model.load(model_path)
 
-def process_image_with_model(file_path):
+def process_image_with_model(file_path, confidence_threshold=0.7):
     try:
         ensure_dirs()
         # Load the image
@@ -62,7 +62,8 @@ def process_image_with_model(file_path):
         original_ocr_texts = []  # New array to store original OCR texts
         
         for i in range(num_detections):
-            if detections['detection_scores'][i] > 0.7:  # Confidence threshold
+            # Use the confidence_threshold parameter instead of hardcoding 0.7
+            if detections['detection_scores'][i] > confidence_threshold:  # Use confidence threshold parameter
                 box = detections['detection_boxes'][i]
                 h, w, _ = image.shape
                 y_min, x_min, y_max, x_max = box
@@ -169,7 +170,7 @@ def process_image_with_model(file_path):
         logger.error(f"Error processing image with model: {e}")
         raise
 
-def process_video_with_model(file_path, low_visibility=False):
+def process_video_with_model(file_path, low_visibility=False, confidence_threshold=0.7):
     try:
         ensure_dirs()
         cap = cv2.VideoCapture(file_path)
@@ -238,7 +239,8 @@ def process_video_with_model(file_path, low_visibility=False):
             frame_candidates = []
 
             for i in range(num_detections):
-                if detections['detection_scores'][i] > 0.7:
+                # Use the confidence_threshold parameter instead of hardcoding 0.7
+                if detections['detection_scores'][i] > confidence_threshold:  # Use confidence threshold parameter
                     box = detections['detection_boxes'][i]
                     h, w, _ = frame.shape
                     y_min, x_min, y_max, x_max = box
