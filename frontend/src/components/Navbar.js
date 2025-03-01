@@ -17,7 +17,7 @@ const Navbar = () => {
 
   return (
     <nav className="navbar">
-      <div className="logo" onClick={handleLogoClick}>AALPR</div>
+      <div className="logo" onClick={handleLogoClick}>VITS</div>
       <div className="nav-links">
         <NavLink to="/" className={({ isActive }) => (isActive ? 'active' : '')} onClick={handleHomeClick}>HOME</NavLink>
         <NavLink to="/about" className={({ isActive }) => (isActive ? 'active' : '')}>ABOUT</NavLink>
