@@ -290,8 +290,8 @@ const HomePage = () => {
                   {processingInfo && processingInfo.dehaze_stages && (
                     <div className="dehaze-stages">
                       <h3>Dehazing Process</h3>
-                      <p><strong>Original Hazy Image:</strong></p>
-                      <img src={`data:image/jpeg;base64,${processingInfo.dehaze_stages.original}`} alt="Original Hazy" />
+                      
+                      {/* Remove the original hazy image display since it's redundant */}
                       
                       <p><strong>Dark Channel:</strong></p>
                       <img src={`data:image/jpeg;base64,${processingInfo.dehaze_stages.dark_channel}`} alt="Dark Channel" />

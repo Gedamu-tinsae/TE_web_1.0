@@ -32,6 +32,9 @@ async def upload_file(file: UploadFile = File(...), low_visibility: bool = Form(
             # Create a temporary path for dehazed image
             dehazed_path = os.path.join(upload_dir, f"dehazed_{file.filename}")
             
+            # Load original image for later use
+            original_image = cv2.imread(file_path)
+            
             # Apply dehazing using HazeRemoval class
             hr = HazeRemoval()
             hr.open_image(file_path)
@@ -41,8 +44,11 @@ async def upload_file(file: UploadFile = File(...), low_visibility: bool = Form(
             hr.guided_filter()
             hr.recover()
             
-            # Get all intermediate images
+            # Get all intermediate images (except the original which is redundant)
             dehaze_stages = hr.get_all_intermediate_images()
+            # Remove the original from stages as it's redundant
+            if 'original' in dehaze_stages:
+                del dehaze_stages['original']
             
             # Save dehazed image
             cv2.imwrite(dehazed_path, hr.dst)
@@ -62,8 +68,42 @@ async def upload_file(file: UploadFile = File(...), low_visibility: bool = Form(
                 dehaze_intermediate_base64[key] = base64.b64encode(buffer).decode('utf-8')
             
             # Add the dehazing intermediate images to the result
-            # This preserves the existing intermediate_images key
             result["dehaze_stages"] = dehaze_intermediate_base64
+            
+            # Fix: Restore original colors to the annotated image
+            try:
+                # Get the annotated image path from the result
+                annotated_path = os.path.join("results", "opencv", "images", os.path.basename(result["result_url"]))
+                
+                # Load the annotated dehazed image
+                annotated_image = cv2.imread(annotated_path)
+                
+                if annotated_image is not None and original_image is not None:
+                    # Copy the license plate annotation (green rectangle and text) to the original image
+                    
+                    # 1. Extract the green annotations (rectangle and text) using color thresholding
+                    lower_green = np.array([0, 200, 0])  # BGR lower bound for bright green
+                    upper_green = np.array([100, 255, 100])  # BGR upper bound for bright green
+                    
+                    # Create a mask of green elements
+                    mask = cv2.inRange(annotated_image, lower_green, upper_green)
+                    
+                    # Apply the mask to get only the green elements
+                    green_elements = cv2.bitwise_and(annotated_image, annotated_image, mask=mask)
+                    
+                    # 2. Overlay these green elements onto the original image
+                    # Resize original image if dimensions don't match
+                    if original_image.shape != annotated_image.shape:
+                        original_image = cv2.resize(original_image, (annotated_image.shape[1], annotated_image.shape[0]))
+                    
+                    # Create a combined image: original background with green annotations
+                    combined = cv2.addWeighted(original_image, 1.0, green_elements, 1.0, 0)
+                    
+                    # 3. Save the result
+                    cv2.imwrite(annotated_path, combined)
+                    logger.info(f"Restored original colors to annotated image: {annotated_path}")
+            except Exception as e:
+                logger.error(f"Error restoring original colors: {e}")
             
         else:
             # Process the image without dehazing
