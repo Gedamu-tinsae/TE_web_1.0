@@ -80,40 +80,8 @@ async def upload_file(file: UploadFile = File(...), low_visibility: bool = Form(
             # Add the dehazing intermediate images to the result
             result["dehaze_stages"] = dehaze_intermediate_base64
             
-            # Fix: Restore original colors to the annotated image
-            try:
-                # Get the annotated image path from the result
-                annotated_path = os.path.join("results", "opencv", "images", os.path.basename(result["result_url"]))
-                
-                # Load the annotated dehazed image
-                annotated_image = cv2.imread(annotated_path)
-                
-                if annotated_image is not None and original_image is not None:
-                    # Copy the license plate annotation (green rectangle and text) to the original image
-                    
-                    # 1. Extract the green annotations (rectangle and text) using color thresholding
-                    lower_green = np.array([0, 200, 0])  # BGR lower bound for bright green
-                    upper_green = np.array([100, 255, 100])  # BGR upper bound for bright green
-                    
-                    # Create a mask of green elements
-                    mask = cv2.inRange(annotated_image, lower_green, upper_green)
-                    
-                    # Apply the mask to get only the green elements
-                    green_elements = cv2.bitwise_and(annotated_image, annotated_image, mask=mask)
-                    
-                    # 2. Overlay these green elements onto the original image
-                    # Resize original image if dimensions don't match
-                    if original_image.shape != annotated_image.shape:
-                        original_image = cv2.resize(original_image, (annotated_image.shape[1], annotated_image.shape[0]))
-                    
-                    # Create a combined image: original background with green annotations
-                    combined = cv2.addWeighted(original_image, 1.0, green_elements, 1.0, 0)
-                    
-                    # 3. Save the result
-                    cv2.imwrite(annotated_path, combined)
-                    logger.info(f"Restored original colors to annotated image: {annotated_path}")
-            except Exception as e:
-                logger.error(f"Error restoring original colors: {e}")
+            # Remove the code that tries to restore original colors to the annotated image
+            # This will keep the dehazed image with annotations
             
         else:
             # Process the image without dehazing
