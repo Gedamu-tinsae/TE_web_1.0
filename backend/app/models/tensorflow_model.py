@@ -169,7 +169,7 @@ def process_image_with_model(file_path):
         logger.error(f"Error processing image with model: {e}")
         raise
 
-def process_video_with_model(file_path):
+def process_video_with_model(file_path, low_visibility=False):
     try:
         ensure_dirs()
         cap = cv2.VideoCapture(file_path)
@@ -184,6 +184,13 @@ def process_video_with_model(file_path):
             "plates": []
         }
 
+        # Initialize HazeRemoval if needed for low visibility
+        hr = None
+        if low_visibility:
+            from .haze_removal import HazeRemoval
+            hr = HazeRemoval()
+            logger.info("Initialized HazeRemoval for low visibility video")
+
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
@@ -195,6 +202,25 @@ def process_video_with_model(file_path):
             # Store original frame
             original_frame = frame.copy()
 
+            # Apply dehazing if low_visibility is True
+            if low_visibility and hr:
+                # Convert frame to proper format for HazeRemoval
+                # Save frame to temp file, process it with HazeRemoval, then read back
+                temp_frame_path = os.path.join("uploads", "tensorflow", "temp_frame.jpg")
+                cv2.imwrite(temp_frame_path, frame)
+                
+                hr.open_image(temp_frame_path)
+                hr.get_dark_channel()
+                hr.get_air_light()
+                hr.get_transmission()
+                hr.guided_filter()
+                hr.recover()
+                
+                # Update frame with dehazed version
+                frame = hr.dst
+                logger.info("Applied dehazing to video frame")
+
+            # Continue with normal processing using the possibly dehazed frame
             # Convert frame to tensor and detect plates
             image_np = np.array(frame)
             input_tensor = tf.convert_to_tensor(np.expand_dims(image_np, 0), dtype=tf.uint8)

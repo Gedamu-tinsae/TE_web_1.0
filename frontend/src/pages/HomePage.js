@@ -25,6 +25,7 @@ const HomePage = () => {
   const [milliseconds, setMilliseconds] = useState(0);
   const [finalTime, setFinalTime] = useState(null);
   const [processingMethod, setProcessingMethod] = useState('opencv'); // New state for processing method
+  const [isLowVisibility, setIsLowVisibility] = useState(false); // New state for low visibility toggle
   const startTimeRef = useRef(null);
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
 
@@ -67,6 +68,8 @@ const HomePage = () => {
       if (files.length > 0) {
         const formData = new FormData();
         formData.append('file', files[0]);
+        // Add low visibility flag to the form data
+        formData.append('low_visibility', isLowVisibility);
         const fileURL = URL.createObjectURL(files[0]);
         console.log('File URL:', fileURL);
         setOriginalMedia(fileURL);
@@ -132,6 +135,8 @@ const HomePage = () => {
       try {
         const startTime = Date.now(); // Start timing
         const formData = new FormData();
+        // Add low visibility flag to the form data
+        formData.append('low_visibility', isLowVisibility);
         
         // Get the current media file
         let mediaBlob;
@@ -501,15 +506,26 @@ const HomePage = () => {
             <span className="tooltip">Real-Time Detection</span>
           </button>
         </div>
-        <div className="dropdown-container">
-          <div className="icon-container" onClick={handleReloadClick}>
-            <img src={reloadIcon} alt="Option Icon" className="dropdown-icon" />
+        <div className="options-container">
+          <div className="dropdown-container">
+            <div className="icon-container" onClick={handleReloadClick}>
+              <img src={reloadIcon} alt="Option Icon" className="dropdown-icon" />
+            </div>
+            <select id="options" value={selectedOption} onChange={handleOptionChange}>
+              <option value=""></option>
+              <option value="opencv">OpenCV</option>
+              <option value="tensorflow">TensorFlow</option>
+            </select>
           </div>
-          <select id="options" value={selectedOption} onChange={handleOptionChange}>
-            <option value=""></option>
-            <option value="opencv">OpenCV</option>
-            <option value="tensorflow">TensorFlow</option>
-          </select>
+          <div className="checkbox-container">
+            <input
+              type="checkbox"
+              id="low-visibility"
+              checked={isLowVisibility}
+              onChange={() => setIsLowVisibility(!isLowVisibility)}
+            />
+            <label htmlFor="low-visibility">Low Visibility/Foggy Image</label>
+          </div>
         </div>
       </div>
     </div>

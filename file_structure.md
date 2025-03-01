@@ -48,9 +48,9 @@
 │   │   ├── opencv_tensorflow.py
 │   │   ├── tensorflow_model.py  
 │   │   ├── plate_correction.py
-│   │   └── saved_model.pb
-|   |   |-- gf.py
-|   |   |-- haze_removal.py
+│   │   ├── saved_model.pb
+│   │   ├── gf.py               # Guided Filter implementation
+│   │   └── haze_removal.py     # Haze/Fog Removal implementation
 │   ├── main.py
 │   └── ...
 ├── results/
@@ -60,4 +60,4 @@
 └── ...
 
 ## Root
-- `file structure.md`
+- `file_structure.md`

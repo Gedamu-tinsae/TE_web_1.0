@@ -2,7 +2,7 @@ import PIL.Image as Image
 import skimage.io as io
 import numpy as np
 import time
-from gf import guided_filter
+from .gf import guided_filter  # Change this line to use relative import
 from numba import njit
 import matplotlib.pyplot as plt
 

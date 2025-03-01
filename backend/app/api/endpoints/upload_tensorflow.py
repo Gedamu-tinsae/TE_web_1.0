@@ -1,9 +1,11 @@
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from app.models.tensorflow_model import process_image_with_model, process_video_with_model
+from app.models.haze_removal import HazeRemoval
 import shutil
 import os
 import logging
+import cv2
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -12,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/upload_image_tensorflow")
-async def upload_image_tensorflow(file: UploadFile = File(...)):
+async def upload_image_tensorflow(file: UploadFile = File(...), low_visibility: bool = Form(False)):
     try:
         # Save the uploaded file
         upload_dir = os.path.join("uploads", "tensorflow", "images")
@@ -22,8 +24,34 @@ async def upload_image_tensorflow(file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, buffer)
         logger.info(f"Image uploaded successfully: {file_path}")
 
-        # Process the image with the TensorFlow model
-        result = process_image_with_model(file_path)
+        # Apply dehazing if low_visibility is True
+        if low_visibility:
+            logger.info("Applying dehazing to low visibility image")
+            # Create a temporary path for dehazed image
+            dehazed_path = os.path.join(upload_dir, f"dehazed_{file.filename}")
+            
+            # Apply dehazing using HazeRemoval class
+            hr = HazeRemoval()
+            hr.open_image(file_path)
+            hr.get_dark_channel()
+            hr.get_air_light()
+            hr.get_transmission()
+            hr.guided_filter()
+            hr.recover()
+            
+            # Save dehazed image
+            cv2.imwrite(dehazed_path, hr.dst)
+            logger.info(f"Dehazed image saved at: {dehazed_path}")
+            
+            # Process the dehazed image with the TensorFlow model
+            result = process_image_with_model(dehazed_path)
+            
+            # Add dehazing info to result
+            result["preprocessing"] = "dehazing_applied"
+            result["original_path"] = file_path
+        else:
+            # Process the image with the TensorFlow model without dehazing
+            result = process_image_with_model(file_path)
 
         return JSONResponse(content=result)
     except Exception as e:
@@ -31,7 +59,8 @@ async def upload_image_tensorflow(file: UploadFile = File(...)):
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
 
 @router.post("/upload_video_tensorflow")
-async def upload_video_tensorflow(file: UploadFile = File(...)):
+async def upload_video_tensorflow(file: UploadFile = File(...), low_visibility: bool = Form(False)):
+    # For videos, we'll handle low visibility processing frame by frame in the model
     try:
         # Save the uploaded file
         upload_dir = os.path.join("uploads", "tensorflow", "videos")
@@ -42,7 +71,8 @@ async def upload_video_tensorflow(file: UploadFile = File(...)):
         logger.info(f"Video uploaded successfully: {file_path}")
 
         # Process the video with the TensorFlow model
-        result = process_video_with_model(file_path)
+        # Note: For video, we'll pass the low_visibility flag to the model function
+        result = process_video_with_model(file_path, low_visibility=low_visibility)
 
         return JSONResponse(content=result)
     except Exception as e:
