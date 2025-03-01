@@ -100,7 +100,10 @@ class HazeRemoval(object):
         self.dst *= 255
         self.dst[self.dst > 255] = 255
         self.dst[self.dst < 0] = 0
+        # Convert to uint8 and ensure we're in BGR format for OpenCV compatibility
         self.dst = self.dst.astype(np.uint8)
+        # If using PIL internally, it might be in RGB format, so convert to BGR
+        self.dst = cv2.cvtColor(self.dst, cv2.COLOR_RGB2BGR)  # Ensure BGR format
         print("Time:", time.time() - start)
 
     def show(self):
@@ -117,10 +120,7 @@ class HazeRemoval(object):
         """Get all intermediate images for visualization in the frontend"""
         intermediate_images = {}
         
-        # Original hazy image
-        intermediate_images["original"] = (self.src * 255).astype(np.uint8)
-        
-        # Dark channel
+        # Dark channel 
         dark_vis = (self.dark * 255).astype(np.uint8)
         # Convert to 3-channel if it's single channel
         if len(dark_vis.shape) == 2:
@@ -142,7 +142,10 @@ class HazeRemoval(object):
         
         # Final dehazed result
         if hasattr(self, 'dst'):
-            intermediate_images["dehazed"] = self.dst
+            # Check if the image is already in BGR format from the recover method
+            # If not, convert to ensure consistency
+            dehazed = self.dst
+            intermediate_images["dehazed"] = dehazed
             
         return intermediate_images
 

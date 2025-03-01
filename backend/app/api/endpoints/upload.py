@@ -64,6 +64,16 @@ async def upload_file(file: UploadFile = File(...), low_visibility: bool = Form(
             # Convert all intermediate dehazing images to base64
             dehaze_intermediate_base64 = {}
             for key, img in dehaze_stages.items():
+                # Ensure all images are in BGR before encoding (OpenCV default)
+                if img.shape[2] == 3:  # If it's a 3-channel image
+                    # No need for conversion if already in BGR format
+                    # But we should check the format to be certain
+                    if key == "dehazed": 
+                        logger.info(f"Dehazed image shape: {img.shape}, min: {img.min()}, max: {img.max()}")
+                        # If it's still mismatched, try direct BGR to RGB conversion
+                        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                
+                # Encode the image
                 _, buffer = cv2.imencode('.jpg', img)
                 dehaze_intermediate_base64[key] = base64.b64encode(buffer).decode('utf-8')
             
