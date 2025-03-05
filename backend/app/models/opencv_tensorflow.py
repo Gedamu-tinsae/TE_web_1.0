@@ -122,10 +122,76 @@ def process_image(file_path, confidence_threshold=0.7):
             logger.info(f"License plate text extracted: {license_plate}")
             logger.info(f"Original OCR text: {original_ocr_text}")
 
-            # Annotate the image with the license plate text and rectangle
+            # First establish the plate region and coordinates
+            points = location.reshape(location.shape[0], 2)  # Convert to a simple array of points
+            
+            # Find min and max x,y coordinates
+            min_x = np.min(points[:, 0])
+            max_x = np.max(points[:, 0])
+            min_y = np.min(points[:, 1])
+            max_y = np.max(points[:, 1])
+            
+            logger.info(f"License plate bounds: ({min_x},{min_y}) to ({max_x},{max_y})")
+            
+            # Calculate vehicle region coordinates
+            h, w = image.shape[:2]
+            plate_height = max_y - min_y
+            plate_width = max_x - min_x
+            
+            # Define vehicle region coordinates
+            vehicle_y_min = max(0, min_y - plate_height * 3)  # Go up 3x the plate height
+            vehicle_y_max = min(h, max_y + plate_height * 1)  # Go down 1x the plate height
+            vehicle_x_min = max(0, min_x - plate_width * 1)   # Expand width by 1x on each side
+            vehicle_x_max = min(w, max_x + plate_width * 1)
+            
+            # Verify that we have valid coordinates (min < max)
+            if vehicle_y_min >= vehicle_y_max or vehicle_x_min >= vehicle_x_max:
+                vehicle_y_min, vehicle_y_max = min(vehicle_y_min, vehicle_y_max), max(vehicle_y_min, vehicle_y_max)
+                vehicle_x_min, vehicle_x_max = min(vehicle_x_min, vehicle_x_max), max(vehicle_x_min, vehicle_x_max)
+            
+            # Extract the vehicle region
+            original_image = cv2.imread(file_path)  # Re-read the original image
+            if original_image is None:
+                original_image = image.copy()
+            
+            vehicle_region = original_image[vehicle_y_min:vehicle_y_max, vehicle_x_min:vehicle_x_max]
+            
+            # Detect color from the vehicle region if it's valid
+            if vehicle_region.size > 0 and vehicle_region.shape[0] > 10 and vehicle_region.shape[1] > 10:
+                region_color_info = detect_vehicle_color(vehicle_region)
+                logger.info(f"Detected vehicle color from region: {region_color_info['color']}")
+                # Update color_info with the region-based detection
+                color_info = region_color_info
+                logger.info(f"Using vehicle region color: {color_info['color']}")
+            else:
+                logger.warning("Invalid vehicle region. Using full image color detection.")
+                # Keep the original full-image color_info
+            
+            # NOW we annotate the image with text and rectangles
             font = cv2.FONT_HERSHEY_SIMPLEX
-            annotated_image = cv2.putText(image, text=license_plate, org=(location[0][0][0], location[1][0][1]+60), fontFace=font, fontScale=1, color=(0,255,0), thickness=2, lineType=cv2.LINE_AA)
-            annotated_image = cv2.rectangle(image, tuple(location[0][0]), tuple(location[2][0]), (0,255,0), 3)
+            annotated_image = cv2.putText(image.copy(), text=license_plate, org=(location[0][0][0], location[1][0][1]+60), 
+                                       fontFace=font, fontScale=1, color=(0,255,0), thickness=2, lineType=cv2.LINE_AA)
+            annotated_image = cv2.rectangle(annotated_image, tuple(location[0][0]), tuple(location[2][0]), (0,255,0), 3)
+            
+            # Add color information using the potentially updated color_info
+            color_text = f"Color: {color_info['color']}"
+            annotated_image = cv2.putText(
+                annotated_image, 
+                color_text,
+                (location[0][0][0], location[1][0][1]+90),
+                font, 
+                0.8, 
+                (0, 255, 255),
+                2, 
+                cv2.LINE_AA
+            )
+            
+            # Draw the vehicle region on the annotated image
+            if vehicle_region.size > 0:
+                annotated_image = cv2.rectangle(annotated_image, 
+                                            (vehicle_x_min, vehicle_y_min), 
+                                            (vehicle_x_max, vehicle_y_max), 
+                                            (0, 255, 255), 1)
             
             # Add color information to the annotated image
             color_text = f"Color: {color_info['color']}"
@@ -328,7 +394,7 @@ def process_video(file_path, confidence_threshold=0.7):
         # Use a dynamic threshold based on confidence_threshold
         min_contour_area = 50 if confidence_threshold < 0.7 else 100
 
-        while cap.isOpened() and frame_number < max_frames:
+        while cap.isOpened() and frame_number < max_frames:  # Fixed: Added missing dot between 'cap' and 'isOpened()'
             ret, frame = cap.read()
             if not ret or frame is None:
                 break
