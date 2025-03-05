@@ -341,29 +341,27 @@ const HomePage = () => {
                       <p><strong>License Plate:</strong></p>
                       <img src={`data:image/jpeg;base64,${intermediateImages.plate}`} alt="License Plate" />
                       
-                      {/* Add Vehicle Region for color detection */}
-                      {intermediateImages.vehicle_region && (
-                        <>
-                          <p><strong>Vehicle Region for Color Detection:</strong></p>
-                          <img 
-                            src={`data:image/jpeg;base64,${intermediateImages.vehicle_region}`} 
-                            alt="Vehicle Region"
-                            onError={(e) => {
-                              console.log('Error loading vehicle region image');
-                              e.target.style.display = 'none';
-                              e.target.parentNode.appendChild(
-                                document.createTextNode(' Vehicle region not available or invalid.')
-                              );
-                            }}
-                          />
-                          {processingInfo.vehicle_color && (
-                            <p className="vehicle-color-caption">
-                              Detected Color: {processingInfo.vehicle_color} 
-                              {processingInfo.color_confidence && 
-                                ` (Confidence: ${(processingInfo.color_confidence * 100).toFixed(1)}%)`}
-                            </p>
-                          )}
-                        </>
+                      {/* Add Vehicle Region for color detection - improved with fallback text */}
+                      <p><strong>Vehicle Region for Color Detection:</strong></p>
+                      {intermediateImages.vehicle_region ? (
+                        <img 
+                          src={`data:image/jpeg;base64,${intermediateImages.vehicle_region}`} 
+                          alt="Vehicle Region"
+                          onError={(e) => {
+                            console.log('Error loading vehicle region image');
+                            e.target.style.display = 'none';
+                            e.target.parentNode.innerHTML += '<div class="error-message">Vehicle region image could not be loaded. The region might be invalid or too small.</div>';
+                          }}
+                        />
+                      ) : (
+                        <div className="missing-region">Vehicle region data not available. Color was detected using the full image.</div>
+                      )}
+                      {processingInfo.vehicle_color && (
+                        <p className="vehicle-color-caption">
+                          Detected Color: {processingInfo.vehicle_color} 
+                          {processingInfo.color_confidence && 
+                            ` (Confidence: ${(processingInfo.color_confidence * 100).toFixed(1)}%)`}
+                        </p>
                       )}
                     </div>
                   )}
@@ -380,30 +378,54 @@ const HomePage = () => {
                         alt="Detection"
                         className="detection-image"
                       />
-                      {processingInfo.intermediate_steps.plates.map((platePath, index) => (
+
+                      {/* First show plates */}
+                      {processingInfo.intermediate_steps.plates && processingInfo.intermediate_steps.plates.map((platePath, index) => (
                         <div key={index} className="detected-plate">
                           <p><strong>Detected Plate {index + 1}:</strong></p>
                           <img src={`http://172.20.10.10:8000${platePath}`} alt={`Plate ${index + 1}`} />
-                          {processingInfo.detected_plates && (
+                          {processingInfo.detected_plates && index < processingInfo.detected_plates.length && (
                             <p className="plate-text">Text: {processingInfo.detected_plates[index]}</p>
                           )}
                         </div>
                       ))}
                       
-                      {/* Add Vehicle Regions for color detection */}
-                      {processingInfo.intermediate_steps.vehicle_regions && processingInfo.intermediate_steps.vehicle_regions.map((regionPath, index) => (
-                        <div key={`region-${index}`} className="detected-vehicle-region">
-                          <p><strong>Vehicle Region {index + 1} for Color Detection:</strong></p>
-                          <img src={`http://172.20.10.10:8000${regionPath}`} alt={`Vehicle Region ${index + 1}`} />
-                          {processingInfo.vehicle_colors && processingInfo.vehicle_colors[index] && (
-                            <p className="vehicle-color-caption">
-                              Detected Color: {processingInfo.vehicle_colors[index]}
-                              {processingInfo.color_confidences && processingInfo.color_confidences[index] && 
-                                ` (Confidence: ${(processingInfo.color_confidences[index] * 100).toFixed(1)}%)`}
-                            </p>
-                          )}
-                        </div>
-                      ))}
+                      {/* Next show vehicle regions if available */}
+                      <h4>Vehicle Color Detection:</h4>
+                      {processingInfo.intermediate_steps.vehicle_regions && processingInfo.intermediate_steps.vehicle_regions.length > 0 ? (
+                        processingInfo.intermediate_steps.vehicle_regions.map((regionPath, index) => (
+                          <div key={`region-${index}`} className="detected-vehicle-region">
+                            <p><strong>Vehicle Region {index + 1} for Color Detection:</strong></p>
+                            <img 
+                              src={`http://172.20.10.10:8000${regionPath}`} 
+                              alt={`Vehicle Region ${index + 1}`}
+                              onError={(e) => {
+                                console.log('Error loading vehicle region image');
+                                e.target.style.display = 'none';
+                                e.target.parentNode.innerHTML += '<div class="error-message">This vehicle region image failed to load.</div>';
+                              }}
+                            />
+                            {processingInfo.vehicle_colors && index < processingInfo.vehicle_colors.length && (
+                              <p className="vehicle-color-caption">
+                                Detected Color: {processingInfo.vehicle_colors[index]}
+                                {processingInfo.color_confidences && index < processingInfo.color_confidences.length && 
+                                  ` (Confidence: ${(processingInfo.color_confidences[index] * 100).toFixed(1)}%)`}
+                              </p>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="missing-region">No vehicle region images available for color detection. Color was detected using the full image.</div>
+                      )}
+
+                      {/* If vehicle regions not available but we have a vehicle color, show it */}
+                      {(!processingInfo.intermediate_steps.vehicle_regions || processingInfo.intermediate_steps.vehicle_regions.length === 0) && processingInfo.vehicle_color && (
+                        <p className="vehicle-color-caption">
+                          Primary Vehicle Color: {processingInfo.vehicle_color}
+                          {processingInfo.color_confidence && 
+                            ` (Confidence: ${(processingInfo.color_confidence * 100).toFixed(1)}%)`}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

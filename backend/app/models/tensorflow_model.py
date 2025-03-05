@@ -42,6 +42,11 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             raise ValueError("Failed to load image.")
         logger.info("Image loaded successfully")
 
+        # Define intermediate directory here at the beginning of the function
+        base_name = os.path.basename(file_path)
+        intermediate_dir = os.path.join("results", "tensorflow", "intermediate", "images")
+        os.makedirs(intermediate_dir, exist_ok=True)  # Ensure directory exists
+        
         # Make a copy for detection visualization
         image = original_image.copy()
         image_np = np.array(image)
@@ -121,8 +126,7 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                     color_confidences.append(color_info["confidence"])
                     
                     # Also save the vehicle region image for visualization
-                    # Make sure we have a valid directory first
-                    os.makedirs(intermediate_dir, exist_ok=True)
+                    # Note: intermediate_dir is now defined at the beginning of the function
                     vehicle_region_path = os.path.join(intermediate_dir, f"4_vehicle_region_{i}_{base_name}")
                     cv2.imwrite(vehicle_region_path, vehicle_region)
                 else:
@@ -192,9 +196,7 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                               2)
 
         # Save intermediate results
-        base_name = os.path.basename(file_path)
-        intermediate_dir = os.path.join("results", "tensorflow", "intermediate", "images")
-        os.makedirs(intermediate_dir, exist_ok=True)  # Ensure directory exists
+        # Note: base_name and intermediate_dir are now already defined above
         
         # Save original image
         original_path = os.path.join(intermediate_dir, f"1_original_{base_name}")
