@@ -125,8 +125,11 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                     vehicle_colors.append(color_info["color"])
                     color_confidences.append(color_info["confidence"])
                     
+                    # Store color percentages for the first detected vehicle (primary vehicle)
+                    if i == 0:
+                        color_percentages = color_info.get("color_percentages", {})
+                    
                     # Also save the vehicle region image for visualization
-                    # Note: intermediate_dir is now defined at the beginning of the function
                     vehicle_region_path = os.path.join(intermediate_dir, f"4_vehicle_region_{i}_{base_name}")
                     cv2.imwrite(vehicle_region_path, vehicle_region)
                 else:
@@ -134,6 +137,10 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                     logger.warning("Empty vehicle region extracted, using full image color")
                     vehicle_colors.append(full_image_color["color"])
                     color_confidences.append(full_image_color["confidence"])
+                    
+                    # Use full image color percentages if this is the first detection
+                    if i == 0:
+                        color_percentages = full_image_color.get("color_percentages", {})
                 
                 # Draw the vehicle region rectangle on the detection image (for visualization)
                 # Use a different color (yellow) to differentiate from plate detection
@@ -230,6 +237,10 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
         final_path = os.path.join("results", "tensorflow", "images", base_name)
         cv2.imwrite(final_path, image)
 
+        # Get color percentages if not set yet (no detections)
+        if 'color_percentages' not in locals():
+            color_percentages = full_image_color.get("color_percentages", {})
+
         result = {
             "status": "success",
             "filename": file_path,
@@ -245,6 +256,7 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             "color_confidences": color_confidences,  # Add color confidences to result
             "vehicle_color": vehicle_colors[0] if vehicle_colors else full_image_color["color"],  # Primary vehicle color
             "color_confidence": color_confidences[0] if color_confidences else full_image_color["confidence"],  # Primary color confidence
+            "color_percentages": color_percentages,  # Add detailed color percentages
             "original_ocr_texts": original_ocr_texts,  # Include original OCR results
             "license_plate": extracted_texts[0] if extracted_texts else "Unknown",
             "original_ocr": original_ocr_texts[0] if original_ocr_texts else "Unknown",  # Include first original OCR
@@ -462,9 +474,14 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
                 color_counter = Counter(all_vehicle_colors)
                 most_common_color = color_counter.most_common(1)[0][0]
                 color_frequency = color_counter.most_common(1)[0][1] / len(all_vehicle_colors)
+                
+                # Create color percentages from the color counter
+                total_colors = len(all_vehicle_colors)
+                color_percentages = {color: (count / total_colors) * 100 for color, count in color_counter.items()}
             else:
                 most_common_color = full_frame_color["color"]
                 color_frequency = full_frame_color["confidence"]
+                color_percentages = full_frame_color.get("color_percentages", {})
 
             result = {
                 "status": "success",
@@ -476,6 +493,7 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
                 "license_plate": all_extracted_texts[0] if all_extracted_texts else "Unknown",
                 "vehicle_color": most_common_color,  # Add vehicle color to result
                 "color_confidence": color_frequency,  # Add confidence (frequency) of color detection
+                "color_percentages": color_percentages,  # Add color percentages
                 "text_candidates": frame_candidates[0] if frame_candidates else []  # Ensure this is a direct array, not nested
             }
 
