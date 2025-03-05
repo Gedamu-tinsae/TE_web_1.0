@@ -340,6 +340,31 @@ const HomePage = () => {
                       <img src={`data:image/jpeg;base64,${intermediateImages.localized}`} alt="Localized" />
                       <p><strong>License Plate:</strong></p>
                       <img src={`data:image/jpeg;base64,${intermediateImages.plate}`} alt="License Plate" />
+                      
+                      {/* Add Vehicle Region for color detection */}
+                      {intermediateImages.vehicle_region && (
+                        <>
+                          <p><strong>Vehicle Region for Color Detection:</strong></p>
+                          <img 
+                            src={`data:image/jpeg;base64,${intermediateImages.vehicle_region}`} 
+                            alt="Vehicle Region"
+                            onError={(e) => {
+                              console.log('Error loading vehicle region image');
+                              e.target.style.display = 'none';
+                              e.target.parentNode.appendChild(
+                                document.createTextNode(' Vehicle region not available or invalid.')
+                              );
+                            }}
+                          />
+                          {processingInfo.vehicle_color && (
+                            <p className="vehicle-color-caption">
+                              Detected Color: {processingInfo.vehicle_color} 
+                              {processingInfo.color_confidence && 
+                                ` (Confidence: ${(processingInfo.color_confidence * 100).toFixed(1)}%)`}
+                            </p>
+                          )}
+                        </>
+                      )}
                     </div>
                   )}
                   
@@ -350,13 +375,32 @@ const HomePage = () => {
                       <p><strong>Original Input Image:</strong></p>
                       <img src={`http://172.20.10.10:8000${processingInfo.intermediate_steps.original}`} alt="Original" />
                       <p><strong>Detection Result:</strong></p>
-                      <img src={`http://172.20.10.10:8000${processingInfo.intermediate_steps.detection}`} alt="Detection" />
+                      <img 
+                        src={`http://172.20.10.10:8000${processingInfo.intermediate_steps.detection}`} 
+                        alt="Detection"
+                        className="detection-image"
+                      />
                       {processingInfo.intermediate_steps.plates.map((platePath, index) => (
                         <div key={index} className="detected-plate">
                           <p><strong>Detected Plate {index + 1}:</strong></p>
                           <img src={`http://172.20.10.10:8000${platePath}`} alt={`Plate ${index + 1}`} />
                           {processingInfo.detected_plates && (
                             <p className="plate-text">Text: {processingInfo.detected_plates[index]}</p>
+                          )}
+                        </div>
+                      ))}
+                      
+                      {/* Add Vehicle Regions for color detection */}
+                      {processingInfo.intermediate_steps.vehicle_regions && processingInfo.intermediate_steps.vehicle_regions.map((regionPath, index) => (
+                        <div key={`region-${index}`} className="detected-vehicle-region">
+                          <p><strong>Vehicle Region {index + 1} for Color Detection:</strong></p>
+                          <img src={`http://172.20.10.10:8000${regionPath}`} alt={`Vehicle Region ${index + 1}`} />
+                          {processingInfo.vehicle_colors && processingInfo.vehicle_colors[index] && (
+                            <p className="vehicle-color-caption">
+                              Detected Color: {processingInfo.vehicle_colors[index]}
+                              {processingInfo.color_confidences && processingInfo.color_confidences[index] && 
+                                ` (Confidence: ${(processingInfo.color_confidences[index] * 100).toFixed(1)}%)`}
+                            </p>
                           )}
                         </div>
                       ))}

@@ -723,6 +723,69 @@ body, html {
   border-radius: 4px;
 }
 
+/* Add these styles to the existing CSS file */
+
+.detected-vehicle-region {
+  margin: 15px 0;
+  padding: 10px;
+  border: 1px solid #444;
+  border-radius: 5px;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.vehicle-color-caption {
+  font-weight: 500;
+  color: #ffd700;
+  margin-top: 5px;
+}
+
+.vehicle-color-info {
+  margin-bottom: 10px;
+  padding: 5px;
+  background-color: rgba(0, 255, 255, 0.1);
+  border-left: 3px solid #00ffff;
+}
+
+/* Style for the color swatch in the vehicle color analysis */
+.color-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  display: inline-block;
+  margin-right: 10px;
+}
+
+.color-bar-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.color-label {
+  width: 100px;
+  font-size: 14px;
+}
+
+.color-bar-container {
+  flex-grow: 1;
+  background-color: rgba(255, 255, 255, 0.1);
+  height: 10px;
+  margin: 0 10px;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.color-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+}
+
+.color-percentage {
+  font-size: 12px;
+  min-width: 50px;
+  text-align: right;
+}
+
 
 
 

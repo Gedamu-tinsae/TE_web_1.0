@@ -63,6 +63,7 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
         original_ocr_texts = []  # New array to store original OCR texts
         vehicle_colors = []  # New array to store vehicle colors
         color_confidences = []  # New array to store color confidences
+        vehicle_regions = []  # New array to store vehicle regions for visualization
         
         # Detect vehicle color from the full image first (as a fallback)
         full_image_color = detect_vehicle_color(original_image)
@@ -96,19 +97,46 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                 vehicle_region_x_min = max(0, x_min - (x_max - x_min))      # Expand width by 1x on each side
                 vehicle_region_x_max = min(w, x_max + (x_max - x_min))
                 
+                # Validate region coordinates
+                if not (vehicle_region_y_min < vehicle_region_y_max and vehicle_region_x_min < vehicle_region_x_max):
+                    logger.warning("Invalid vehicle region coordinates")
+                    continue
+                
                 # Extract vehicle region
                 vehicle_region = image[vehicle_region_y_min:vehicle_region_y_max, 
                                       vehicle_region_x_min:vehicle_region_x_max]
+                
+                # Save the vehicle region coordinates for visualization
+                vehicle_regions.append({
+                    "x_min": vehicle_region_x_min,
+                    "y_min": vehicle_region_y_min,
+                    "x_max": vehicle_region_x_max,
+                    "y_max": vehicle_region_y_max
+                })
                 
                 # Detect vehicle color
                 if vehicle_region.size > 0:
                     color_info = detect_vehicle_color(vehicle_region)
                     vehicle_colors.append(color_info["color"])
                     color_confidences.append(color_info["confidence"])
+                    
+                    # Also save the vehicle region image for visualization
+                    # Make sure we have a valid directory first
+                    os.makedirs(intermediate_dir, exist_ok=True)
+                    vehicle_region_path = os.path.join(intermediate_dir, f"4_vehicle_region_{i}_{base_name}")
+                    cv2.imwrite(vehicle_region_path, vehicle_region)
                 else:
                     # Use full image color as fallback
+                    logger.warning("Empty vehicle region extracted, using full image color")
                     vehicle_colors.append(full_image_color["color"])
                     color_confidences.append(full_image_color["confidence"])
+                
+                # Draw the vehicle region rectangle on the detection image (for visualization)
+                # Use a different color (yellow) to differentiate from plate detection
+                cv2.rectangle(detection_image, 
+                             (vehicle_region_x_min, vehicle_region_y_min), 
+                             (vehicle_region_x_max, vehicle_region_y_max), 
+                             (0, 255, 255), 1)  # Yellow color with thin line
                 
                 # Double-check for the COVID19 special case
                 if plate_text == 'OD19':
@@ -166,6 +194,7 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
         # Save intermediate results
         base_name = os.path.basename(file_path)
         intermediate_dir = os.path.join("results", "tensorflow", "intermediate", "images")
+        os.makedirs(intermediate_dir, exist_ok=True)  # Ensure directory exists
         
         # Save original image
         original_path = os.path.join(intermediate_dir, f"1_original_{base_name}")
@@ -181,6 +210,19 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             plate_path = os.path.join(intermediate_dir, f"3_plate_{idx}_{base_name}")
             cv2.imwrite(plate_path, plate)
             plate_paths.append(f"/results/tensorflow/intermediate/images/3_plate_{idx}_{base_name}")
+        
+        # Save vehicle regions for visualization
+        vehicle_region_paths = []
+        for idx, region_coords in enumerate(vehicle_regions):
+            if idx < len(localized_images):  # Only save regions for valid detections
+                vehicle_region_img = image[
+                    region_coords["y_min"]:region_coords["y_max"],
+                    region_coords["x_min"]:region_coords["x_max"]
+                ]
+                if vehicle_region_img.size > 0:
+                    vehicle_region_path = os.path.join(intermediate_dir, f"4_vehicle_region_{idx}_{base_name}")
+                    cv2.imwrite(vehicle_region_path, vehicle_region_img)
+                    vehicle_region_paths.append(f"/results/tensorflow/intermediate/images/4_vehicle_region_{idx}_{base_name}")
 
         # Save final result
         final_path = os.path.join("results", "tensorflow", "images", base_name)
@@ -193,7 +235,8 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             "intermediate_steps": {
                 "original": f"/results/tensorflow/intermediate/images/1_original_{base_name}",
                 "detection": f"/results/tensorflow/intermediate/images/2_detection_{base_name}",
-                "plates": plate_paths
+                "plates": plate_paths,
+                "vehicle_regions": vehicle_region_paths  # Add vehicle regions to the result
             },
             "detected_plates": extracted_texts,
             "vehicle_colors": vehicle_colors,  # Add vehicle colors to result
@@ -203,7 +246,8 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             "original_ocr_texts": original_ocr_texts,  # Include original OCR results
             "license_plate": extracted_texts[0] if extracted_texts else "Unknown",
             "original_ocr": original_ocr_texts[0] if original_ocr_texts else "Unknown",  # Include first original OCR
-            "text_candidates": text_candidates[0] if text_candidates else []  # Ensure this is a direct array, not nested
+            "text_candidates": text_candidates[0] if text_candidates else [],  # Ensure this is a direct array, not nested
+            "vehicle_region_coordinates": vehicle_regions  # Include the coordinates for frontend highlighting
         }
 
         return result
