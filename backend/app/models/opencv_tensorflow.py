@@ -153,17 +153,19 @@ def process_image(file_path, confidence_threshold=0.7):
             vehicle_x_min = max(0, x1 - (x2 - x1))      # Expand width by 1x on each side
             vehicle_x_max = min(w, x2 + (x2 - x1))
             
-            # Validate that the region coordinates are valid
+            # Create intermediate directory for OpenCV if it doesn't exist
+            intermediate_dir = os.path.join("results", "opencv", "intermediate", "images")
+            os.makedirs(intermediate_dir, exist_ok=True)
+            
+            # Make sure we have valid coordinates and extract the region
             if vehicle_y_min < vehicle_y_max and vehicle_x_min < vehicle_x_max:
-                # Extract the region for color detection
                 vehicle_region = image[vehicle_y_min:vehicle_y_max, vehicle_x_min:vehicle_x_max]
                 
                 # Check if the vehicle region is not empty
-                if vehicle_region.size > 0:
+                if vehicle_region.size > 0 and vehicle_region.shape[0] > 0 and vehicle_region.shape[1] > 0:
+                    logger.info(f"Valid vehicle region extracted with shape {vehicle_region.shape}")
                     # Save the vehicle region for visualization
-                    vehicle_region_path = os.path.join("results", "opencv", "intermediate", "images")
-                    os.makedirs(vehicle_region_path, exist_ok=True)
-                    vehicle_region_file = os.path.join(vehicle_region_path, f"vehicle_region_{os.path.basename(file_path)}")
+                    vehicle_region_file = os.path.join(intermediate_dir, f"vehicle_region_{os.path.basename(file_path)}")
                     cv2.imwrite(vehicle_region_file, vehicle_region)
                     
                     # Draw the vehicle region on the annotated image with a different color (yellow)
@@ -179,10 +181,10 @@ def process_image(file_path, confidence_threshold=0.7):
                     # Use the color detected from the vehicle region if available
                     color_info = region_color_info
                 else:
-                    logger.warning("Extracted vehicle region is empty, using full image color detection.")
+                    logger.warning(f"Empty vehicle region extracted: minmax={vehicle_y_min},{vehicle_y_max},{vehicle_x_min},{vehicle_x_max}")
                     # If vehicle region is empty, keep using the full image color detection
             else:
-                logger.warning("Invalid vehicle region coordinates. Using full image color detection.")
+                logger.warning(f"Invalid vehicle region coordinates: {vehicle_y_min},{vehicle_y_max},{vehicle_x_min},{vehicle_x_max}")
                 # Just use the full image color detection from earlier
 
             # Save the annotated image in the opencv/images subfolder
@@ -199,11 +201,16 @@ def process_image(file_path, confidence_threshold=0.7):
 
             # Encode intermediate images as base64 strings
             def encode_image(image):
-                if image is None or image.size == 0:
+                if image is None or not isinstance(image, np.ndarray) or image.size == 0:
                     # Return an empty base64 string or placeholder for empty images
+                    logger.warning("Attempted to encode empty or invalid image")
                     return ""
-                _, buffer = cv2.imencode('.jpg', image)
-                return base64.b64encode(buffer).decode('utf-8')
+                try:
+                    _, buffer = cv2.imencode('.jpg', image)
+                    return base64.b64encode(buffer).decode('utf-8')
+                except Exception as e:
+                    logger.error(f"Error encoding image: {e}")
+                    return ""
 
             intermediate_images = {
                 "gray": encode_image(gray),
@@ -212,11 +219,33 @@ def process_image(file_path, confidence_threshold=0.7):
                 "plate": encode_image(cropped_image),
             }
             
-            # Add vehicle region to intermediate images only if it's valid
-            if 'vehicle_region' in locals() and vehicle_region.size > 0:
-                intermediate_images["vehicle_region"] = encode_image(vehicle_region)
+            # Add vehicle region to intermediate images with explicit error handling
+            if 'vehicle_region' in locals() and isinstance(vehicle_region, np.ndarray) and vehicle_region.size > 0:
+                try:
+                    vehicle_region_encoded = encode_image(vehicle_region)
+                    if vehicle_region_encoded:
+                        intermediate_images["vehicle_region"] = vehicle_region_encoded
+                        logger.info("Successfully encoded vehicle region image")
+                    else:
+                        logger.warning("Failed to encode vehicle region image")
+                except Exception as e:
+                    logger.error(f"Exception while encoding vehicle region: {e}")
+            else:
+                logger.warning("Vehicle region not available for encoding")
             
-            # Vehicle region coordinates for frontend visualization
+            # Create debug info to help diagnose issues - Convert NumPy types to native Python types
+            debug_info = {
+                "vehicle_region_exists": 'vehicle_region' in locals(),
+                "vehicle_region_shape": [int(dim) for dim in vehicle_region.shape] if 'vehicle_region' in locals() and hasattr(vehicle_region, 'shape') else None,
+                "region_coordinates": {
+                    "y_min": int(vehicle_y_min),
+                    "y_max": int(vehicle_y_max),
+                    "x_min": int(vehicle_x_min),
+                    "x_max": int(vehicle_x_max)
+                }
+            }
+            
+            # Vehicle region coordinates for frontend visualization - Ensure they are Python int types
             vehicle_region_coordinates = {
                 "x_min": int(vehicle_x_min),
                 "y_min": int(vehicle_y_min),
@@ -237,7 +266,8 @@ def process_image(file_path, confidence_threshold=0.7):
                 "vehicle_color": color_info["color"],  # Include detected vehicle color
                 "color_confidence": color_info["confidence"],  # Include color detection confidence
                 "color_percentages": color_info.get("color_percentages", {}),  # Include detailed color percentages if available
-                "vehicle_region_coordinates": vehicle_region_coordinates  # Include the coordinates
+                "vehicle_region_coordinates": vehicle_region_coordinates,  # Include the coordinates
+                "debug_info": debug_info  # Add debug info to help diagnose issues
             }
 
             return result

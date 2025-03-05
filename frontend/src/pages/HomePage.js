@@ -354,7 +354,21 @@ const HomePage = () => {
                           }}
                         />
                       ) : (
-                        <div className="missing-region">Vehicle region data not available. Color was detected using the full image.</div>
+                        <div className="missing-region">
+                          Vehicle region data not available. Color was detected using the full image.
+                          {processingInfo && processingInfo.debug_info && (
+                            <div className="debug-info">
+                              <p>Debug info:</p>
+                              <ul>
+                                <li>Vehicle region exists: {processingInfo.debug_info.vehicle_region_exists ? 'Yes' : 'No'}</li>
+                                <li>Region shape: {processingInfo.debug_info.vehicle_region_shape ? 
+                                                   `${processingInfo.debug_info.vehicle_region_shape[0]}x${processingInfo.debug_info.vehicle_region_shape[1]}x${processingInfo.debug_info.vehicle_region_shape[2]}` : 'N/A'}</li>
+                                <li>Coordinates: ({processingInfo.debug_info.region_coordinates.y_min}, {processingInfo.debug_info.region_coordinates.x_min}) to 
+                                                ({processingInfo.debug_info.region_coordinates.y_max}, {processingInfo.debug_info.region_coordinates.x_max})</li>
+                              </ul>
+                            </div>
+                          )}
+                        </div>
                       )}
                       {processingInfo.vehicle_color && (
                         <p className="vehicle-color-caption">
