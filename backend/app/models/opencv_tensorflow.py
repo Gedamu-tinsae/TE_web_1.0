@@ -5,6 +5,7 @@ import imutils
 import logging
 import json
 import base64
+import re  # Add missing import for regular expressions
 from .plate_correction import extract_text_from_plate, extract_text_from_region, get_reader, matches_pattern, looks_like_covid, generate_character_analysis_for_covid19
 from .color_detection import detect_vehicle_color, visualize_color_detection
 
@@ -76,17 +77,121 @@ def process_image(file_path, confidence_threshold=0.7):
             mask = np.zeros(gray.shape, np.uint8)
             new_image = cv2.drawContours(mask, [location], 0, 255, -1)
             new_image = cv2.bitwise_and(image, image, mask=mask)
-            (x, y) = np.where(mask == 255)
-            if x.size == 0 or y.size == 0:
+            
+            # Try a different approach - get bounding rectangle of the contour
+            # This might capture the full plate better than just using the contour points
+            x, y, w, h = cv2.boundingRect(location)
+            
+            # Expand the rectangle slightly to ensure we get the whole plate
+            # This is especially important for plates with spaced characters
+            expand_factor_w = 1.2  # Expand width by 20%
+            expand_factor_h = 1.1  # Expand height by 10%
+            
+            # Calculate expanded dimensions
+            new_w = int(w * expand_factor_w)
+            new_h = int(h * expand_factor_h)
+            
+            # Calculate new top left point (centered)
+            new_x = max(0, x - (new_w - w) // 2)
+            new_y = max(0, y - (new_h - h) // 2)
+            
+            # Make sure we don't go out of bounds
+            new_w = min(new_w, image.shape[1] - new_x)
+            new_h = min(new_h, image.shape[0] - new_y)
+            
+            # Extract the expanded plate region from the original image
+            expanded_plate_region = image[new_y:new_y+new_h, new_x:new_x+new_w]
+            
+            # Convert to grayscale specifically for OCR
+            expanded_plate_gray = cv2.cvtColor(expanded_plate_region, cv2.COLOR_BGR2GRAY)
+            
+            # Save the expanded region for debugging
+            intermediate_dir = os.path.join("results", "opencv", "intermediate", "images")
+            os.makedirs(intermediate_dir, exist_ok=True)
+            expanded_plate_path = os.path.join(intermediate_dir, f"expanded_plate_{os.path.basename(file_path)}")
+            cv2.imwrite(expanded_plate_path, expanded_plate_region)
+            
+            # Use both the original cropped plate and the expanded plate for OCR
+            # and pick the better result
+            
+            # Original approach for comparison
+            (x_orig, y_orig) = np.where(mask == 255)
+            if x_orig.size == 0 or y_orig.size == 0:
                 logger.error("Failed to locate the license plate region.")
                 raise ValueError("Failed to locate the license plate region.")
-            (x1, y1) = (np.min(x), np.min(y))
-            (x2, y2) = (np.max(x), np.max(y))
+            (x1, y1) = (np.min(x_orig), np.min(y_orig))
+            (x2, y2) = (np.max(x_orig), np.max(y_orig))
             cropped_image = gray[x1:x2+1, y1:y2+1]
-            logger.info("License plate region extracted")
-
-            # Use our centralized function to extract text and candidates
-            license_plate, text_candidates, original_ocr_text = extract_text_from_plate(cropped_image, preprocessing_level='standard')
+            
+            # Try OCR on both the original and expanded plate regions
+            license_plate_orig, text_candidates_orig, original_ocr_text_orig = extract_text_from_plate(cropped_image, preprocessing_level='standard')
+            license_plate_exp, text_candidates_exp, original_ocr_text_exp = extract_text_from_plate(expanded_plate_gray, preprocessing_level='standard')
+            
+            # Log both results for comparison
+            logger.info(f"Original crop OCR: {original_ocr_text_orig}, license plate: {license_plate_orig}")
+            logger.info(f"Expanded crop OCR: {original_ocr_text_exp}, license plate: {license_plate_exp}")
+            
+            # Choose the better result - prefer the one with more characters or one that matches a pattern
+            def get_score(plate, candidates):
+                # Calculate a score based on:
+                # 1. Length of the text (longer is better)
+                # 2. If it matches a pattern (pattern match is better)
+                # 3. Confidence score
+                
+                length_score = len(plate) * 0.2  # 0.2 points per character
+                
+                pattern_score = 0
+                confidence_score = 0
+                
+                if candidates and len(candidates) > 0:
+                    if candidates[0].get("pattern_match", False):
+                        pattern_score = 2.0  # Pattern match is worth 2 points
+                    confidence_score = candidates[0].get("confidence", 0) * 2.0  # Up to 2 points for confidence
+                
+                # Check for number+letter format which is typical for license plates
+                format_score = 0
+                if re.search(r'\d+\s*[A-Z]+', plate):  # Numbers followed by letters (with optional space)
+                    format_score = 2.0  # This common format is worth 2 points
+                
+                return length_score + pattern_score + confidence_score + format_score
+            
+            # Calculate scores
+            orig_score = get_score(license_plate_orig, text_candidates_orig)
+            exp_score = get_score(license_plate_exp, text_candidates_exp)
+            
+            # Choose the best result
+            if exp_score > orig_score:
+                logger.info(f"Using expanded plate region (score: {exp_score:.2f} vs {orig_score:.2f})")
+                license_plate = license_plate_exp
+                text_candidates = text_candidates_exp
+                original_ocr_text = original_ocr_text_exp
+                # Use the expanded plate coordinates
+                cropped_image = expanded_plate_gray
+                x1, y1 = new_x, new_y
+                x2, y2 = new_x + new_w - 1, new_y + new_h - 1
+            else:
+                logger.info(f"Using original plate region (score: {orig_score:.2f} vs {exp_score:.2f})")
+                license_plate = license_plate_orig
+                text_candidates = text_candidates_orig
+                original_ocr_text = original_ocr_text_orig
+            
+            # Special check for separated characters like "172 TMZ" 
+            if len(license_plate) <= 3 and all(c.isdigit() for c in license_plate):
+                # If we just got a short number, try to find matching letter part in the expanded region
+                parts = re.findall(r'[A-Z]{2,}', original_ocr_text_exp)
+                if parts:
+                    letter_part = parts[0]
+                    logger.info(f"Found separated letter part: {letter_part}")
+                    combined_plate = f"{license_plate} {letter_part}"
+                    logger.info(f"Combined plate: {combined_plate}")
+                    license_plate = combined_plate
+                    
+                    # Also update the first candidate
+                    if text_candidates and len(text_candidates) > 0:
+                        text_candidates[0]["text"] = combined_plate
+                        text_candidates[0]["confidence"] = max(text_candidates[0].get("confidence", 0.7), 0.7)
+                        text_candidates[0]["pattern_match"] = True
+                        text_candidates[0]["pattern_name"] = "Format 123 ABC with space"
             
             # Double-check for the COVID19 special case
             if license_plate == 'OD19' or any(c.get('text') == 'OD19' for c in text_candidates):

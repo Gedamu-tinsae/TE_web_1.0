@@ -35,27 +35,34 @@ LICENSE_PATTERNS = [
     {"pattern": r'^[A-Z]{1,2}\d{1,4}$', "name": "UK Old Style (A123)"},
     {"pattern": r'^[A-Z]{3}\d{1,4}$', "name": "UK Diplomatic (XYZ123)"},
     
-    # US Formats (examples from different states)
-    {"pattern": r'^\d{1,3}[A-Z]{3}$', "name": "US - 3 Letters (123ABC)"},
-    {"pattern": r'^[A-Z]{3}\d{3,4}$', "name": "US - 3 Letters (ABC1234)"},
-    {"pattern": r'^\d{3}[A-Z]{2}\d{1}$', "name": "CA Format (123AB4)"},
+    # US Formats (examples from different states) - Add space flexibility
+    {"pattern": r'^\d{1,3}\s*[A-Z]{3}$', "name": "US - 3 Letters (123 ABC)"},  # Added \s* to allow optional spaces
+    {"pattern": r'^[A-Z]{3}\s*\d{3,4}$', "name": "US - 3 Letters (ABC 1234)"},  # Added \s* to allow optional spaces
+    {"pattern": r'^\d{3}\s*[A-Z]{2}\s*\d{1}$', "name": "CA Format (123 AB 4)"},  # Added \s* to allow optional spaces
     
     # European Formats
     {"pattern": r'^[A-Z]{1,3}-\d{1,4}-[A-Z]{1,2}$', "name": "EU with Hyphens (AB-1234-C)"},
-    {"pattern": r'^[A-Z]{1,2} \d{1,4} [A-Z]{1,2}$', "name": "EU with Spaces (AB 1234 C)"},
+    {"pattern": r'^[A-Z]{1,2}\s+\d{1,4}\s+[A-Z]{1,2}$', "name": "EU with Spaces (AB 1234 C)"},
     
     # Special formats
     {"pattern": r'^COVID\d{2}$', "name": "Special - COVID19"},
     {"pattern": r'^[A-Z]{5}$', "name": "All Letters (ABCDE)"},
     
-    # General formats
-    {"pattern": r'^[A-Z]{2}\d{2}[A-Z]{2}$', "name": "Format AB12CD"},
-    {"pattern": r'^[A-Z]{2}\d{3}[A-Z]{2}$', "name": "Format AB123CD"},
-    {"pattern": r'^[A-Z]{1,3}\d{1,4}[A-Z]{0,2}$', "name": "General Format (ABC1234DE)"},
+    # General formats with optional spaces
+    {"pattern": r'^[A-Z]{2}\s*\d{2}\s*[A-Z]{2}$', "name": "Format AB12CD or AB 12 CD"},
+    {"pattern": r'^[A-Z]{2}\s*\d{3}\s*[A-Z]{2}$', "name": "Format AB123CD or AB 123 CD"},
+    {"pattern": r'^[A-Z]{1,3}\s*\d{1,4}\s*[A-Z]{0,2}$', "name": "General Format (ABC1234DE or ABC 1234 DE)"},
+    
+    # Add pattern specifically for "172 TMZ" type format
+    {"pattern": r'^\d{2,3}\s+[A-Z]{3}$', "name": "Format 123 ABC with space"},
     
     # Add more specific patterns for problematic cases
     {"pattern": r'^OD\d{2}$', "name": "Special Format (OD19)"},
     {"pattern": r'^[A-Z]{2}\d{2}$', "name": "Format AB12"},
+    
+    # Additional patterns with optional spaces between all characters
+    {"pattern": r'^(\d|\s)*(\d+)(\s+[A-Z]+)$', "name": "Numbers followed by letters with spaces"},
+    {"pattern": r'^([A-Z]|\s)*([A-Z]+)(\s+\d+)$', "name": "Letters followed by numbers with spaces"},
 ]
 
 # Character confusion mapping (commonly misread characters)
@@ -266,6 +273,14 @@ def correct_plate_text(text, confidence_threshold=0.5):
     Returns:
         tuple: (corrected_text, is_valid_pattern, confidence, pattern_name)
     """
+    # First, try with the original text (which may contain spaces)
+    # This will help recognize patterns like "172 TMZ"
+    original_with_spaces = text.upper()
+    is_match_with_spaces, pattern_name_with_spaces = matches_pattern(original_with_spaces)
+    if is_match_with_spaces:
+        return original_with_spaces, True, 1.0, pattern_name_with_spaces
+    
+    # If no match with spaces, continue with standard cleaned text approach
     cleaned_text = ''.join(c for c in text if c.isalnum()).upper()
     
     # Special case for OD19 which should always be COVID19
@@ -487,6 +502,23 @@ def extract_text_from_plate(plate_region, preprocessing_level='standard'):
             img5 = cv2.Laplacian(gray, cv2.CV_8U, ksize=3)
             img5 = cv2.threshold(img5, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
             preprocessed_images.append(img5)
+            
+            # Additional preprocessing to handle large spaces within plate text
+            # Try to close gaps with morphological operations
+            img6 = cv2.resize(gray, None, fx=1.5, fy=1.5)
+            img6 = cv2.equalizeHist(img6)
+            kernel = np.ones((1, 5), np.uint8)  # Horizontal kernel to close gaps between characters
+            img6 = cv2.morphologyEx(img6, cv2.MORPH_CLOSE, kernel)
+            img6 = cv2.threshold(img6, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+            preprocessed_images.append(img6)
+            
+            # Try erosion followed by dilation with a wider kernel
+            img7 = cv2.resize(gray, None, fx=1.5, fy=1.5)
+            kernel = np.ones((1, 7), np.uint8)
+            img7 = cv2.erode(img7, kernel, iterations=1)
+            img7 = cv2.dilate(img7, kernel, iterations=1)
+            img7 = cv2.threshold(img7, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+            preprocessed_images.append(img7)
         
         # Process each preprocessed image with OCR and keep the best result
         best_confidence = 0.0
