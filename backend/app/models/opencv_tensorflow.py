@@ -6,6 +6,7 @@ import logging
 import json
 import base64
 from .plate_correction import extract_text_from_plate, extract_text_from_region, get_reader, matches_pattern, looks_like_covid, generate_character_analysis_for_covid19
+from .color_detection import detect_vehicle_color, visualize_color_detection
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +32,10 @@ def process_image(file_path, confidence_threshold=0.7):
             logger.error("Failed to load image.")
             raise ValueError("Failed to load image.")
         logger.info("Image loaded successfully")
+
+        # Detect vehicle color from the full image
+        color_info = detect_vehicle_color(image)
+        logger.info(f"Detected vehicle color: {color_info['color']}")
 
         # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -121,7 +126,21 @@ def process_image(file_path, confidence_threshold=0.7):
             font = cv2.FONT_HERSHEY_SIMPLEX
             annotated_image = cv2.putText(image, text=license_plate, org=(location[0][0][0], location[1][0][1]+60), fontFace=font, fontScale=1, color=(0,255,0), thickness=2, lineType=cv2.LINE_AA)
             annotated_image = cv2.rectangle(image, tuple(location[0][0]), tuple(location[2][0]), (0,255,0), 3)
-            logger.info("Annotated image with license plate text and rectangle")
+            
+            # Add color information to the annotated image
+            color_text = f"Color: {color_info['color']}"
+            annotated_image = cv2.putText(
+                annotated_image, 
+                color_text,
+                (location[0][0][0], location[1][0][1]+90), # Position below license plate text
+                font, 
+                0.8, 
+                (0, 255, 255), # Yellow color for visibility
+                2, 
+                cv2.LINE_AA
+            )
+            
+            logger.info("Annotated image with license plate text, rectangle and color information")
 
             # Save the annotated image in the opencv/images subfolder
             result_image_path = os.path.join("results", "opencv", "images", os.path.basename(file_path))
@@ -156,7 +175,10 @@ def process_image(file_path, confidence_threshold=0.7):
                 "original_ocr": original_ocr_text,  # Include original OCR text
                 "filename": file_path,
                 "customer_data": customer_data,
-                "text_candidates": text_candidates  # Already a direct array from our extraction function
+                "text_candidates": text_candidates,  # Already a direct array from our extraction function
+                "vehicle_color": color_info["color"],  # Include detected vehicle color
+                "color_confidence": color_info["confidence"],  # Include color detection confidence
+                "color_percentages": color_info.get("color_percentages", {})  # Include detailed color percentages if available
             }
 
             return result
@@ -179,6 +201,7 @@ def process_video(file_path, confidence_threshold=0.7):
         frame_number = 0
         results = []
         max_frames = 40  # Limit the number of frames to process
+        all_vehicle_colors = []  # Track all detected vehicle colors
 
         # Use a dynamic threshold based on confidence_threshold
         min_contour_area = 50 if confidence_threshold < 0.7 else 100
@@ -190,6 +213,11 @@ def process_video(file_path, confidence_threshold=0.7):
 
             frame_number += 1
             logger.info(f"Processing frame {frame_number}/{min(frame_count, max_frames)}")
+            
+            # Detect vehicle color from the full frame
+            color_info = detect_vehicle_color(frame)
+            all_vehicle_colors.append(color_info["color"])
+            logger.info(f"Frame {frame_number}: Detected vehicle color: {color_info['color']}")
 
             # Process each frame (similar to process_image function)
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -230,6 +258,35 @@ def process_video(file_path, confidence_threshold=0.7):
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 annotated_frame = cv2.putText(frame, text=license_plate, org=(location[0][0][0], location[1][0][1]+60), fontFace=font, fontScale=1, color=(0,255,0), thickness=2, lineType=cv2.LINE_AA)
                 annotated_frame = cv2.rectangle(frame, tuple(location[0][0]), tuple(location[2][0]), (0,255,0), 3)
+                
+                # Add color information to the frame
+                color_text = f"Color: {color_info['color']}"
+                annotated_frame = cv2.putText(
+                    annotated_frame, 
+                    color_text,
+                    (location[0][0][0], location[1][0][1]+90), # Position below license plate text
+                    font, 
+                    0.8, 
+                    (0, 255, 255), # Yellow color for visibility
+                    2, 
+                    cv2.LINE_AA
+                )
+                
+                results.append(annotated_frame)
+            else:
+                # Even if we can't find the license plate, we still want to process the frame
+                # and show the color detection
+                color_text = f"Color: {color_info['color']}"
+                annotated_frame = cv2.putText(
+                    frame.copy(), 
+                    color_text,
+                    (10, 30), # Position at top-left if no plate is found
+                    font, 
+                    0.8, 
+                    (0, 255, 255), # Yellow color for visibility
+                    2, 
+                    cv2.LINE_AA
+                )
                 results.append(annotated_frame)
 
         cap.release()
@@ -246,10 +303,23 @@ def process_video(file_path, confidence_threshold=0.7):
 
             logger.info(f"Annotated video saved at: {result_video_path}")
 
+            # Determine most common vehicle color
+            from collections import Counter
+            if all_vehicle_colors:
+                color_counter = Counter(all_vehicle_colors)
+                most_common_color = color_counter.most_common(1)[0][0]
+                color_frequency = color_counter.most_common(1)[0][1] / len(all_vehicle_colors)
+            else:
+                most_common_color = "Unknown"
+                color_frequency = 0.0
+
             result = {
                 "status": "success",
                 "result_url": f"/results/opencv/videos/{os.path.basename(result_video_path)}",
                 "filename": file_path,
+                "vehicle_color": most_common_color,  # Add most common vehicle color
+                "color_confidence": color_frequency,  # Add confidence (frequency) of color detection
+                "all_colors": dict(color_counter.most_common(3))  # Include top 3 detected colors
             }
 
             return result

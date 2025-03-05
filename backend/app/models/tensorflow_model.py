@@ -5,6 +5,7 @@ import os
 import logging
 import base64
 from .plate_correction import extract_text_from_plate, matches_pattern, looks_like_covid, generate_character_analysis_for_covid19
+from .color_detection import detect_vehicle_color, visualize_color_detection
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -60,6 +61,11 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
         extracted_texts = []
         text_candidates = []
         original_ocr_texts = []  # New array to store original OCR texts
+        vehicle_colors = []  # New array to store vehicle colors
+        color_confidences = []  # New array to store color confidences
+        
+        # Detect vehicle color from the full image first (as a fallback)
+        full_image_color = detect_vehicle_color(original_image)
         
         for i in range(num_detections):
             # Use the confidence_threshold parameter instead of hardcoding 0.7
@@ -82,6 +88,27 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                 extracted_texts.append(plate_text)
                 text_candidates.append(candidates)
                 original_ocr_texts.append(original_ocr_text)  # Store the original OCR text
+                
+                # For vehicle color detection, extract a larger region around the license plate
+                # This helps capture more of the vehicle
+                vehicle_region_y_min = max(0, y_min - (y_max - y_min) * 3)  # Go up 3x the plate height
+                vehicle_region_y_max = min(h, y_max + (y_max - y_min))      # Go down 1x the plate height
+                vehicle_region_x_min = max(0, x_min - (x_max - x_min))      # Expand width by 1x on each side
+                vehicle_region_x_max = min(w, x_max + (x_max - x_min))
+                
+                # Extract vehicle region
+                vehicle_region = image[vehicle_region_y_min:vehicle_region_y_max, 
+                                      vehicle_region_x_min:vehicle_region_x_max]
+                
+                # Detect vehicle color
+                if vehicle_region.size > 0:
+                    color_info = detect_vehicle_color(vehicle_region)
+                    vehicle_colors.append(color_info["color"])
+                    color_confidences.append(color_info["confidence"])
+                else:
+                    # Use full image color as fallback
+                    vehicle_colors.append(full_image_color["color"])
+                    color_confidences.append(full_image_color["confidence"])
                 
                 # Double-check for the COVID19 special case
                 if plate_text == 'OD19':
@@ -125,6 +152,16 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                           0.9,
                           (255, 255, 255),
                           2)
+                
+                # Add color information below the plate text
+                if vehicle_colors:
+                    color_text = f"Color: {vehicle_colors[-1]}"
+                    cv2.putText(image, color_text,
+                              (x_min, y_min - 40),  # Position above the plate text
+                              cv2.FONT_HERSHEY_SIMPLEX,
+                              0.7,
+                              (0, 255, 255),  # Yellow color for visibility
+                              2)
 
         # Save intermediate results
         base_name = os.path.basename(file_path)
@@ -159,6 +196,10 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                 "plates": plate_paths
             },
             "detected_plates": extracted_texts,
+            "vehicle_colors": vehicle_colors,  # Add vehicle colors to result
+            "color_confidences": color_confidences,  # Add color confidences to result
+            "vehicle_color": vehicle_colors[0] if vehicle_colors else full_image_color["color"],  # Primary vehicle color
+            "color_confidence": color_confidences[0] if color_confidences else full_image_color["confidence"],  # Primary color confidence
             "original_ocr_texts": original_ocr_texts,  # Include original OCR results
             "license_plate": extracted_texts[0] if extracted_texts else "Unknown",
             "original_ocr": original_ocr_texts[0] if original_ocr_texts else "Unknown",  # Include first original OCR
@@ -184,6 +225,7 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
             "detection": [],
             "plates": []
         }
+        all_vehicle_colors = []  # Track all detected vehicle colors
 
         # Initialize HazeRemoval if needed for low visibility
         hr = None
@@ -221,6 +263,9 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
                 frame = hr.dst
                 logger.info("Applied dehazing to video frame")
 
+            # Get full frame vehicle color (fallback)
+            full_frame_color = detect_vehicle_color(frame)
+
             # Continue with normal processing using the possibly dehazed frame
             # Convert frame to tensor and detect plates
             image_np = np.array(frame)
@@ -237,6 +282,7 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
             frame_plates = []
             frame_texts = []
             frame_candidates = []
+            frame_colors = []  # Track colors detected in this frame
 
             for i in range(num_detections):
                 # Use the confidence_threshold parameter instead of hardcoding 0.7
@@ -256,6 +302,24 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
 
                     # Use the common extraction function for improved OCR
                     plate_text, candidates = extract_text_from_plate(plate, preprocessing_level='advanced')
+                    
+                    # For vehicle color detection, extract a larger region around the license plate
+                    vehicle_region_y_min = max(0, y_min - (y_max - y_min) * 3)  # Go up 3x the plate height
+                    vehicle_region_y_max = min(h, y_max + (y_max - y_min))      # Go down 1x the plate height
+                    vehicle_region_x_min = max(0, x_min - (x_max - x_min))      # Expand width by 1x on each side
+                    vehicle_region_x_max = min(w, x_max + (x_max - x_min))
+                    
+                    # Extract vehicle region
+                    vehicle_region = frame[vehicle_region_y_min:vehicle_region_y_max, 
+                                          vehicle_region_x_min:vehicle_region_x_max]
+                    
+                    # Detect vehicle color
+                    if vehicle_region.size > 0:
+                        color_info = detect_vehicle_color(vehicle_region)
+                        frame_colors.append(color_info["color"])
+                    else:
+                        # Use full frame color as fallback
+                        frame_colors.append(full_frame_color["color"])
                     
                     # Double-check for the COVID19 special case
                     if plate_text == 'OD19':
@@ -299,12 +363,23 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
                               0.9,
                               (255, 255, 255),
                               2)
+                    
+                    # Add color information
+                    if frame_colors:
+                        color_text = f"Color: {frame_colors[-1]}"
+                        cv2.putText(frame, color_text,
+                                  (x_min, y_min - 40),  # Position above the plate text
+                                  cv2.FONT_HERSHEY_SIMPLEX,
+                                  0.7,
+                                  (0, 255, 255),  # Yellow color for visibility
+                                  2)
 
             # Store intermediate results for this frame
             all_intermediate_frames["original"].append(original_frame)
             all_intermediate_frames["detection"].append(detection_frame)
             all_intermediate_frames["plates"].extend(frame_plates)
             all_extracted_texts.extend(frame_texts)
+            all_vehicle_colors.extend(frame_colors)  # Add detected colors
 
             # Add processed frame to results
             results.append(frame)
@@ -335,6 +410,16 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
                 "plates": [encode_image(plate) for plate in all_intermediate_frames["plates"][:5]]  # Limit to first 5 plates
             }
 
+            # Determine most common vehicle color
+            from collections import Counter
+            if all_vehicle_colors:
+                color_counter = Counter(all_vehicle_colors)
+                most_common_color = color_counter.most_common(1)[0][0]
+                color_frequency = color_counter.most_common(1)[0][1] / len(all_vehicle_colors)
+            else:
+                most_common_color = full_frame_color["color"]
+                color_frequency = full_frame_color["confidence"]
+
             result = {
                 "status": "success",
                 "filename": file_path,
@@ -343,6 +428,8 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
                 "intermediate_images": intermediate_images,
                 "detected_plates": list(set(all_extracted_texts)),  # Remove duplicates
                 "license_plate": all_extracted_texts[0] if all_extracted_texts else "Unknown",
+                "vehicle_color": most_common_color,  # Add vehicle color to result
+                "color_confidence": color_frequency,  # Add confidence (frequency) of color detection
                 "text_candidates": frame_candidates[0] if frame_candidates else []  # Ensure this is a direct array, not nested
             }
 

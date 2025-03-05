@@ -35,6 +35,27 @@ const HomePage = () => {
     if (confidence >= 0.4) return 'medium-confidence';
     return 'low-confidence';
   };
+  
+  // Helper function to get bar colors for color visualization
+  const getColorForBar = (colorName) => {
+    // Map color names to CSS color values
+    const colorMap = {
+      'red': '#ff6b6b',
+      'orange': '#ff9f43',
+      'yellow': '#feca57',
+      'green': '#1dd1a1',
+      'blue': '#54a0ff',
+      'purple': '#5f27cd',
+      'white': '#c8d6e5',
+      'black': '#222f3e',
+      'gray': '#8395a7',
+      'silver': '#dfe4ea',
+      'brown': '#a0522d'
+    };
+    
+    // Return the mapped color or a default if not found
+    return colorMap[colorName] || '#6c5ce7';
+  };
 
   useEffect(() => {
     let interval;
@@ -368,6 +389,17 @@ const HomePage = () => {
                     <div className="processing-info">
                       <p><strong>Filename:</strong> {processingInfo.filename}</p>
                       <p><strong>License Plate:</strong> {processingInfo.license_plate}</p>
+                      
+                      {/* Add vehicle color information */}
+                      {processingInfo.vehicle_color && (
+                        <p className="vehicle-color-info">
+                          <strong>Vehicle Color:</strong> {processingInfo.vehicle_color}
+                          {processingInfo.color_confidence && (
+                            <span className="color-confidence"> (Confidence: {(processingInfo.color_confidence * 100).toFixed(1)}%)</span>
+                          )}
+                        </p>
+                      )}
+                      
                       {processingInfo.original_ocr && (
                         <p><strong>Original OCR Detection:</strong> {processingInfo.original_ocr}</p>
                       )}
@@ -483,7 +515,41 @@ const HomePage = () => {
                         </div>
                       )}
                       
-                      {/* ...existing code... */}
+                      {/* Color analysis chart if color_percentages are available */}
+                      {processingInfo.color_percentages && (
+                        <div className="color-analysis">
+                          <h4>Vehicle Color Analysis:</h4>
+                          <div className="color-bars">
+                            {Object.entries(processingInfo.color_percentages)
+                              .sort((a, b) => b[1] - a[1])
+                              .map(([color, percentage], index) => (
+                                <div key={index} className="color-bar-row">
+                                  <div 
+                                    className="color-swatch"
+                                    style={{ 
+                                      backgroundColor: color,
+                                      border: color === 'white' ? '1px solid #ccc' : 'none'
+                                    }}
+                                  ></div>
+                                  <div className="color-label">{color.charAt(0).toUpperCase() + color.slice(1)}</div>
+                                  <div className="color-bar-container">
+                                    <div 
+                                      class="color-bar-fill" 
+                                      style={{ 
+                                        width: `${Math.min(100, percentage)}%`,
+                                        backgroundColor: getColorForBar(color)
+                                      }}
+                                    ></div>
+                                  </div>
+                                  <div className="color-percentage">{percentage.toFixed(1)}%</div>
+                                </div>
+                              ))
+                              .slice(0, 6) /* Show top 6 colors only */
+                            }
+                          </div>
+                        </div>
+                      )}
+                      
                     </div>
                   )}
                 </div>
