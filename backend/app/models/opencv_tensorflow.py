@@ -143,49 +143,76 @@ def process_image(file_path, confidence_threshold=0.7):
             logger.info("Annotated image with license plate text, rectangle and color information")
 
             # Extract a larger area around the license plate for vehicle color detection
-            h, w = image.shape[:2]
-            x1, y1 = location[0][0]
-            x2, y2 = location[2][0]
+            # IMPORTANT: Use the original image for vehicle color detection
+            original_image = cv2.imread(file_path)  # Re-read the original image to be sure
+            if original_image is None:
+                original_image = image.copy()  # Fall back to using the current image if re-reading fails
+            
+            h, w = original_image.shape[:2]
+            
+            # Extract the corner points of the license plate
+            # Need to properly order the points (top-left, top-right, bottom-right, bottom-left)
+            points = location.reshape(location.shape[0], 2)  # Convert to a simple array of points
+            
+            # Find min and max x,y coordinates
+            min_x = np.min(points[:, 0])
+            max_x = np.max(points[:, 0])
+            min_y = np.min(points[:, 1])
+            max_y = np.max(points[:, 1])
+            
+            logger.info(f"License plate bounds: ({min_x},{min_y}) to ({max_x},{max_y})")
             
             # Calculate vehicle region with larger area above the plate (where the vehicle body usually is)
-            vehicle_y_min = max(0, y1 - (y2 - y1) * 3)  # Go up 3x the plate height
-            vehicle_y_max = min(h, y2 + (y2 - y1))      # Go down 1x the plate height
-            vehicle_x_min = max(0, x1 - (x2 - x1))      # Expand width by 1x on each side
-            vehicle_x_max = min(w, x2 + (x2 - x1))
+            # Use a simple rectangular region around the plate
+            plate_height = max_y - min_y
+            plate_width = max_x - min_x
+            
+            # Define vehicle region coordinates
+            vehicle_y_min = max(0, min_y - plate_height * 3)  # Go up 3x the plate height
+            vehicle_y_max = min(h, max_y + plate_height * 1)  # Go down 1x the plate height
+            vehicle_x_min = max(0, min_x - plate_width * 1)   # Expand width by 1x on each side
+            vehicle_x_max = min(w, max_x + plate_width * 1)
+            
+            # Verify that we have valid coordinates (min < max)
+            if vehicle_y_min >= vehicle_y_max or vehicle_x_min >= vehicle_x_max:
+                logger.warning(f"Invalid vehicle region coordinates: y({vehicle_y_min}:{vehicle_y_max}), x({vehicle_x_min}:{vehicle_x_max})")
+                # Fix the coordinates in case of inversion
+                vehicle_y_min, vehicle_y_max = min(vehicle_y_min, vehicle_y_max), max(vehicle_y_min, vehicle_y_max)
+                vehicle_x_min, vehicle_x_max = min(vehicle_x_min, vehicle_x_max), max(vehicle_x_min, vehicle_x_max)
+            
+            # Print coordinates for debugging
+            logger.info(f"Vehicle region coordinates: y({vehicle_y_min}:{vehicle_y_max}), x({vehicle_x_min}:{vehicle_x_max})")
             
             # Create intermediate directory for OpenCV if it doesn't exist
             intermediate_dir = os.path.join("results", "opencv", "intermediate", "images")
             os.makedirs(intermediate_dir, exist_ok=True)
             
-            # Make sure we have valid coordinates and extract the region
-            if vehicle_y_min < vehicle_y_max and vehicle_x_min < vehicle_x_max:
-                vehicle_region = image[vehicle_y_min:vehicle_y_max, vehicle_x_min:vehicle_x_max]
+            # Extract the vehicle region
+            vehicle_region = original_image[vehicle_y_min:vehicle_y_max, vehicle_x_min:vehicle_x_max]
+            
+            # Check if the vehicle region is valid
+            if vehicle_region.size > 0 and vehicle_region.shape[0] > 10 and vehicle_region.shape[1] > 10:
+                logger.info(f"Valid vehicle region extracted with shape {vehicle_region.shape}")
                 
-                # Check if the vehicle region is not empty
-                if vehicle_region.size > 0 and vehicle_region.shape[0] > 0 and vehicle_region.shape[1] > 0:
-                    logger.info(f"Valid vehicle region extracted with shape {vehicle_region.shape}")
-                    # Save the vehicle region for visualization
-                    vehicle_region_file = os.path.join(intermediate_dir, f"vehicle_region_{os.path.basename(file_path)}")
-                    cv2.imwrite(vehicle_region_file, vehicle_region)
-                    
-                    # Draw the vehicle region on the annotated image with a different color (yellow)
-                    annotated_image = cv2.rectangle(annotated_image, 
-                                                (vehicle_x_min, vehicle_y_min), 
-                                                (vehicle_x_max, vehicle_y_max), 
-                                                (0, 255, 255), 1)  # Yellow with thin line
-                    
-                    # Now detect color from this vehicle region instead of the whole image
-                    region_color_info = detect_vehicle_color(vehicle_region)
-                    logger.info(f"Detected vehicle color from region: {region_color_info['color']}")
-                    
-                    # Use the color detected from the vehicle region if available
-                    color_info = region_color_info
-                else:
-                    logger.warning(f"Empty vehicle region extracted: minmax={vehicle_y_min},{vehicle_y_max},{vehicle_x_min},{vehicle_x_max}")
-                    # If vehicle region is empty, keep using the full image color detection
+                # Save the vehicle region for visualization
+                vehicle_region_file = os.path.join(intermediate_dir, f"vehicle_region_{os.path.basename(file_path)}")
+                cv2.imwrite(vehicle_region_file, vehicle_region)
+                
+                # Draw the vehicle region on the annotated image with a different color (yellow)
+                annotated_image = cv2.rectangle(annotated_image, 
+                                            (vehicle_x_min, vehicle_y_min), 
+                                            (vehicle_x_max, vehicle_y_max), 
+                                            (0, 255, 255), 1)  # Yellow with thin line
+                
+                # Now detect color from this vehicle region instead of the whole image
+                region_color_info = detect_vehicle_color(vehicle_region)
+                logger.info(f"Detected vehicle color from region: {region_color_info['color']}")
+                
+                # Use the color detected from the vehicle region if available
+                color_info = region_color_info
             else:
-                logger.warning(f"Invalid vehicle region coordinates: {vehicle_y_min},{vehicle_y_max},{vehicle_x_min},{vehicle_x_max}")
-                # Just use the full image color detection from earlier
+                logger.warning(f"Invalid vehicle region shape: {vehicle_region.shape if hasattr(vehicle_region, 'shape') else 'unknown'}")
+                # Keep using the full image color detection
 
             # Save the annotated image in the opencv/images subfolder
             result_image_path = os.path.join("results", "opencv", "images", os.path.basename(file_path))
@@ -235,13 +262,19 @@ def process_image(file_path, confidence_threshold=0.7):
             
             # Create debug info to help diagnose issues - Convert NumPy types to native Python types
             debug_info = {
-                "vehicle_region_exists": 'vehicle_region' in locals(),
-                "vehicle_region_shape": [int(dim) for dim in vehicle_region.shape] if 'vehicle_region' in locals() and hasattr(vehicle_region, 'shape') else None,
+                "vehicle_region_exists": 'vehicle_region' in locals() and vehicle_region.size > 0,
+                "vehicle_region_shape": [int(dim) for dim in vehicle_region.shape] if 'vehicle_region' in locals() and hasattr(vehicle_region, 'shape') and vehicle_region.size > 0 else None,
                 "region_coordinates": {
                     "y_min": int(vehicle_y_min),
                     "y_max": int(vehicle_y_max),
                     "x_min": int(vehicle_x_min),
                     "x_max": int(vehicle_x_max)
+                },
+                "license_plate_bounds": {
+                    "min_x": int(min_x),
+                    "max_x": int(max_x),
+                    "min_y": int(min_y),
+                    "max_y": int(max_y)
                 }
             }
             
