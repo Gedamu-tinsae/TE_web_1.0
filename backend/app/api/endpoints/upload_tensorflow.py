@@ -65,7 +65,7 @@ async def upload_image_tensorflow(file: UploadFile = File(...), low_visibility: 
             
         else:
             # Process the image with the TensorFlow model without dehazing
-            result = process_image_with_model(file_path)
+            result = process_image_with_model(file_path, confidence_threshold=0.6 if low_visibility else 0.7)
 
         return JSONResponse(content=result)
     except Exception as e:

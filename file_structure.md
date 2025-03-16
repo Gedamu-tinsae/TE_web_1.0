@@ -51,6 +51,7 @@
 │   │   ├── saved_model.pb
 │   │   ├── gf.py               # Guided Filter implementation
 │   │   ├── haze_removal.py     # Haze/Fog Removal implementation
+│   │   ├── vehicle_type.py     # Vehicle Type Detection using YOLOv8
 │   │   └── VTD/                # Vehicle and Traffic Detection
 │   │       └── yolov8n.pt      # YOLOv8 pre-trained model
 │   ├── main.py

@@ -8,6 +8,7 @@ import base64
 import re  # Add missing import for regular expressions
 from .plate_correction import extract_text_from_plate, extract_text_from_region, get_reader, matches_pattern, looks_like_covid, generate_character_analysis_for_covid19
 from .color_detection import detect_vehicle_color, visualize_color_detection
+from .vehicle_type import vehicle_detector
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -272,12 +273,28 @@ def process_image(file_path, confidence_threshold=0.7):
                 logger.warning("Invalid vehicle region. Using full image color detection.")
                 # Keep the original full-image color_info
             
-            # NOW we annotate the image with text and rectangles
+            # Detect vehicle type from the vehicle region
+            if vehicle_region.size > 0:
+                vehicle_type_info = vehicle_detector.detect(vehicle_region)
+                logger.info(f"Detected vehicle type: {vehicle_type_info['vehicle_type']}")
+            else:
+                # Try detecting from full image as fallback
+                vehicle_type_info = vehicle_detector.detect(image)
+                logger.info(f"Detected vehicle type from full image: {vehicle_type_info['vehicle_type']}")
+
+            # Draw annotations with vehicle type information
             font = cv2.FONT_HERSHEY_SIMPLEX
-            annotated_image = cv2.putText(image.copy(), text=license_plate, org=(location[0][0][0], location[1][0][1]+60), 
-                                       fontFace=font, fontScale=1, color=(0,255,0), thickness=2, lineType=cv2.LINE_AA)
-            annotated_image = cv2.rectangle(annotated_image, tuple(location[0][0]), tuple(location[2][0]), (0,255,0), 3)
+            annotated_image = cv2.putText(image.copy(), text=license_plate, 
+                                       org=(location[0][0][0], location[1][0][1]+60),
+                                       fontFace=font, fontScale=1, color=(0,255,0), thickness=2)
             
+            # Add vehicle type text
+            type_text = f"Type: {vehicle_type_info['vehicle_type']}"
+            annotated_image = cv2.putText(annotated_image,
+                                        type_text,
+                                        (location[0][0][0], location[1][0][1]+120),
+                                        font, 0.8, (255, 165, 0), 2)
+
             # Add color information using the potentially updated color_info
             color_text = f"Color: {color_info['color']}"
             annotated_image = cv2.putText(
@@ -471,7 +488,10 @@ def process_image(file_path, confidence_threshold=0.7):
                 "color_confidence": color_info["confidence"],  # Include color detection confidence
                 "color_percentages": color_info.get("color_percentages", {}),  # Include detailed color percentages if available
                 "vehicle_region_coordinates": vehicle_region_coordinates,  # Include the coordinates
-                "debug_info": debug_info  # Add debug info to help diagnose issues
+                "debug_info": debug_info,  # Add debug info to help diagnose issues
+                "vehicle_type": vehicle_type_info["vehicle_type"],
+                "vehicle_type_confidence": vehicle_type_info["confidence"],
+                "vehicle_type_alternatives": vehicle_type_info["alternatives"],
             }
 
             return result

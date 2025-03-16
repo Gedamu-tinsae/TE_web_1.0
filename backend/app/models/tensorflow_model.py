@@ -6,6 +6,7 @@ import logging
 import base64
 from .plate_correction import extract_text_from_plate, matches_pattern, looks_like_covid, generate_character_analysis_for_covid19
 from .color_detection import detect_vehicle_color, visualize_color_detection
+from .vehicle_type import vehicle_detector
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -202,6 +203,23 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                               (0, 255, 255),  # Yellow color for visibility
                               2)
 
+                # Detect vehicle type from the vehicle region
+                if vehicle_region.size > 0:
+                    vehicle_type_info = vehicle_detector.detect(vehicle_region)
+                    logger.info(f"Detected vehicle type: {vehicle_type_info['vehicle_type']}")
+                else:
+                    # Try detecting from full image as fallback
+                    vehicle_type_info = vehicle_detector.detect(image)
+                    logger.info(f"Detected vehicle type from full image: {vehicle_type_info['vehicle_type']}")
+
+                # Add vehicle type text to the annotated image
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                type_text = f"Type: {vehicle_type_info['vehicle_type']}"
+                cv2.putText(image,
+                           type_text,
+                           (x_min, y_min - 40),  # Position above color text
+                           font, 0.8, (255, 165, 0), 2)
+
         # Save intermediate results
         # Note: base_name and intermediate_dir are now already defined above
         
@@ -261,7 +279,10 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             "license_plate": extracted_texts[0] if extracted_texts else "Unknown",
             "original_ocr": original_ocr_texts[0] if original_ocr_texts else "Unknown",  # Include first original OCR
             "text_candidates": text_candidates[0] if text_candidates else [],  # Ensure this is a direct array, not nested
-            "vehicle_region_coordinates": vehicle_regions  # Include the coordinates for frontend highlighting
+            "vehicle_region_coordinates": vehicle_regions,  # Include the coordinates for frontend highlighting
+            "vehicle_type": vehicle_type_info["vehicle_type"],
+            "vehicle_type_confidence": vehicle_type_info["confidence"],
+            "vehicle_type_alternatives": vehicle_type_info["alternatives"]
         }
 
         return result
@@ -432,6 +453,17 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
                                   (0, 255, 255),  # Yellow color for visibility
                                   2)
 
+                    # Detect vehicle type from the vehicle region
+                    vehicle_type_info = vehicle_detector.detect(frame)
+                    logger.info(f"Frame {frame_number}: Detected vehicle type: {vehicle_type_info['vehicle_type']}")
+                    
+                    # Add vehicle type text to the annotated frame
+                    type_text = f"Type: {vehicle_type_info['vehicle_type']}"
+                    cv2.putText(frame,
+                               type_text,
+                               (x_min, y_min - 40),  # Position above color text
+                               font, 0.8, (255, 165, 0), 2)
+
             # Store intermediate results for this frame
             all_intermediate_frames["original"].append(original_frame)
             all_intermediate_frames["detection"].append(detection_frame)
@@ -494,7 +526,10 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
                 "vehicle_color": most_common_color,  # Add vehicle color to result
                 "color_confidence": color_frequency,  # Add confidence (frequency) of color detection
                 "color_percentages": color_percentages,  # Add color percentages
-                "text_candidates": frame_candidates[0] if frame_candidates else []  # Ensure this is a direct array, not nested
+                "text_candidates": frame_candidates[0] if frame_candidates else [],  # Ensure this is a direct array, not nested
+                "vehicle_type": vehicle_type_info["vehicle_type"],
+                "vehicle_type_confidence": vehicle_type_info["confidence"],
+                "vehicle_type_alternatives": vehicle_type_info["alternatives"]
             }
 
             return result

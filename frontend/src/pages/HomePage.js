@@ -630,6 +630,32 @@ const HomePage = () => {
                         </div>
                       )}
                       
+                      {/* Add Vehicle Type Information */}
+                      {processingInfo.vehicle_type && (
+                        <div className="vehicle-type-info">
+                          <strong>Vehicle Type:</strong> {processingInfo.vehicle_type}
+                          {processingInfo.vehicle_type_confidence && (
+                            <span className="type-confidence"> 
+                              (Confidence: {(processingInfo.vehicle_type_confidence * 100).toFixed(1)}%)
+                            </span>
+                          )}
+                          
+                          {/* Show alternative detections if available */}
+                          {processingInfo.vehicle_type_alternatives && 
+                           processingInfo.vehicle_type_alternatives.length > 0 && (
+                            <div className="vehicle-alternatives">
+                              <p><strong>Alternative Detections:</strong></p>
+                              {processingInfo.vehicle_type_alternatives.map((alt, index) => (
+                                <div key={index} className="vehicle-alternative-item">
+                                  <span>{alt.type}</span>
+                                  <span>{(alt.confidence * 100).toFixed(1)}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
                     </div>
                   )}
                 </div>

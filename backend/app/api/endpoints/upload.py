@@ -85,7 +85,7 @@ async def upload_file(file: UploadFile = File(...), low_visibility: bool = Form(
             
         else:
             # Process the image without dehazing
-            result = process_image(file_path)
+            result = process_image(file_path, confidence_threshold=0.7)
 
         return JSONResponse(content=result)
     except Exception as e:
