@@ -50,13 +50,20 @@
 │   │   ├── plate_correction.py
 │   │   ├── saved_model.pb
 │   │   ├── gf.py               # Guided Filter implementation
-│   │   └── haze_removal.py     # Haze/Fog Removal implementation
+│   │   ├── haze_removal.py     # Haze/Fog Removal implementation
+│   │   └── VTD/                # Vehicle and Traffic Detection
+│   │       └── yolov8n.pt      # YOLOv8 pre-trained model
 │   ├── main.py
 │   └── ...
 ├── results/
 │   └── ... (generated result images and videos)
 ├── uploads/
 │   └── ... (uploaded images)
+├── venv/
+├── VTD/                        # Vehicle Detection Scripts
+│   ├── cmd-vtd.md             # Command documentation
+│   ├── verify_yolov8_image.py # Image detection verification
+│   └── verify_yolov8_video.py # Video detection verification
 └── ...
 
 ## Root
