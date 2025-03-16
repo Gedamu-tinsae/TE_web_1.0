@@ -460,6 +460,62 @@ const HomePage = () => {
                             ` (Confidence: ${(processingInfo.color_confidence * 100).toFixed(1)}%)`}
                         </p>
                       )}
+
+                      {/* After vehicle color section in the More window, update vehicle type region section */}
+                      {processingMethod === 'tensorflow' ? (
+                        <div className="vehicle-type-region">
+                          <p><strong>Vehicle Type Detection Region:</strong></p>
+                          {processingInfo.intermediate_steps.vehicle_type_region ? (
+                            <img 
+                              src={`http://172.20.10.10:8000${processingInfo.intermediate_steps.vehicle_type_region}`}
+                              alt="Vehicle Type Detection Region"
+                              onError={(e) => {
+                                console.log('Error loading vehicle type region image');
+                                e.target.style.display = 'none';
+                                e.target.parentNode.innerHTML += `
+                                  <div class="missing-region">
+                                    <p>Vehicle type region image not available.</p>
+                                    <p>Vehicle type detected: ${processingInfo.vehicle_type || 'Unknown'}</p>
+                                    <p>Confidence: ${processingInfo.vehicle_type_confidence ? 
+                                      (processingInfo.vehicle_type_confidence * 100).toFixed(1) + '%' : 'N/A'}</p>
+                                  </div>`;
+                              }}
+                            />
+                          ) : (
+                            <div className="missing-region">
+                              <p>No dedicated region image available for vehicle type detection.</p>
+                              <p>Vehicle type was detected from the full image.</p>
+                              <p>Detected type: {processingInfo.vehicle_type || 'Unknown'}</p>
+                              {processingInfo.vehicle_type_confidence && 
+                                <p>Confidence: {(processingInfo.vehicle_type_confidence * 100).toFixed(1)}%</p>}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        // Existing OpenCV vehicle type region code
+                        <div className="vehicle-type-region">
+                          <p><strong>Vehicle Type Detection Region:</strong></p>
+                          {intermediateImages.vehicle_region ? (
+                            <img 
+                              src={`data:image/jpeg;base64,${intermediateImages.vehicle_region}`} 
+                              alt="Vehicle Type Detection Region"
+                              onError={(e) => {
+                                console.log('Error loading vehicle type region image');
+                                e.target.style.display = 'none';
+                                e.target.parentNode.innerHTML += '<div class="error-message">Vehicle type region image could not be loaded.</div>';
+                              }}
+                            />
+                          ) : (
+                            <div className="missing-region">
+                              <p>No dedicated region image available for vehicle type detection.</p>
+                              <p>Vehicle type was detected from the full image.</p>
+                              <p>Detected type: {processingInfo.vehicle_type || 'Unknown'}</p>
+                              {processingInfo.vehicle_type_confidence && 
+                                <p>Confidence: {(processingInfo.vehicle_type_confidence * 100).toFixed(1)}%</p>}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
