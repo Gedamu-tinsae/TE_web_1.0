@@ -377,6 +377,26 @@ const HomePage = () => {
                             ` (Confidence: ${(processingInfo.color_confidence * 100).toFixed(1)}%)`}
                         </p>
                       )}
+                      {/* After vehicle color section, add vehicle type region */}
+                      {intermediateImages.vehicle_region && (
+                        <div className="vehicle-type-region">
+                          <p><strong>Vehicle Type Detection Region:</strong></p>
+                          <img 
+                            src={`data:image/jpeg;base64,${intermediateImages.vehicle_region}`} 
+                            alt="Vehicle Type Detection Region"
+                            onError={(e) => {
+                              console.log('Error loading vehicle type region image');
+                              e.target.style.display = 'none';
+                              e.target.parentNode.innerHTML += '<div class="error-message">Vehicle type region image could not be loaded.</div>';
+                            }}
+                          />
+                          <p className="type-detection-caption">
+                            Region used for vehicle type detection: {processingInfo.vehicle_type}
+                            {processingInfo.vehicle_type_confidence && 
+                              ` (Confidence: ${(processingInfo.vehicle_type_confidence * 100).toFixed(1)}%)`}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                   

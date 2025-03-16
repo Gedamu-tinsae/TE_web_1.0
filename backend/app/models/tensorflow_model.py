@@ -268,7 +268,13 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                 "original": f"/results/tensorflow/intermediate/images/1_original_{base_name}",
                 "detection": f"/results/tensorflow/intermediate/images/2_detection_{base_name}",
                 "plates": plate_paths,
-                "vehicle_regions": vehicle_region_paths  # Add vehicle regions to the result
+                "vehicle_regions": vehicle_region_paths,
+                "vehicle_type_region": vehicle_region_paths[0] if vehicle_region_paths else None
+            },
+            "intermediate_images": {
+                # Ensure array is contiguous before encoding
+                "vehicle_region": base64.b64encode(np.ascontiguousarray(vehicle_region)).decode('utf-8') 
+                if 'vehicle_region' in locals() and vehicle_region.size > 0 else None
             },
             "detected_plates": extracted_texts,
             "vehicle_colors": vehicle_colors,  # Add vehicle colors to result
@@ -475,17 +481,6 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
                         if region_type_info["confidence"] > vehicle_type_info["confidence"]:
                             vehicle_type_info = region_type_info
                             logger.info(f"Frame {frame_number}: Updated vehicle type: {vehicle_type_info['vehicle_type']}")
-
-                    # Detect vehicle type from the vehicle region
-                    vehicle_type_info = vehicle_detector.detect(frame)
-                    logger.info(f"Frame {frame_number}: Detected vehicle type: {vehicle_type_info['vehicle_type']}")
-                    
-                    # Add vehicle type text to the annotated frame
-                    type_text = f"Type: {vehicle_type_info['vehicle_type']}"
-                    cv2.putText(frame,
-                               type_text,
-                               (x_min, y_min - 40),  # Position above color text
-                               font, 0.8, (255, 165, 0), 2)
 
             # Store intermediate results for this frame
             all_intermediate_frames["original"].append(original_frame)
