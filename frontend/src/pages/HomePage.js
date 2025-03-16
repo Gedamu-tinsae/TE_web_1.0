@@ -543,6 +543,16 @@ const HomePage = () => {
                   </button>
                   {processingInfo && (
                     <div className="processing-info">
+                      {/* Add notification for full image OCR */}
+                      {processingInfo.plate_detection_status === 'full_image' && (
+                        <div className="full-image-ocr-notice">
+                          <p className="warning-text">No license plate detected. Using full image OCR.</p>
+                          {processingInfo.original_ocr !== processingInfo.license_plate && (
+                            <p className="original-text">Original OCR text: {processingInfo.original_ocr}</p>
+                          )}
+                        </div>
+                      )}
+                      
                       <p><strong>Filename:</strong> {processingInfo.filename}</p>
                       <p><strong>License Plate:</strong> {processingInfo.license_plate}</p>
                       
