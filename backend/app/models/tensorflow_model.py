@@ -74,6 +74,18 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
         # Detect vehicle color from the full image first (as a fallback)
         full_image_color = detect_vehicle_color(original_image)
         
+        # Initialize vehicle type detection with default values
+        vehicle_type_info = {
+            "vehicle_type": "Unknown",
+            "confidence": 0.0,
+            "alternatives": []
+        }
+        
+        # Detect vehicle type from full image first
+        initial_type_info = vehicle_detector.detect(image)
+        if initial_type_info["confidence"] > 0.3:  # Set a minimum threshold
+            vehicle_type_info = initial_type_info
+
         for i in range(num_detections):
             # Use the confidence_threshold parameter instead of hardcoding 0.7
             if detections['detection_scores'][i] > confidence_threshold:  # Use confidence threshold parameter
@@ -203,22 +215,11 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                               (0, 255, 255),  # Yellow color for visibility
                               2)
 
-                # Detect vehicle type from the vehicle region
+                # Update vehicle type if we get a better detection from the region
                 if vehicle_region.size > 0:
-                    vehicle_type_info = vehicle_detector.detect(vehicle_region)
-                    logger.info(f"Detected vehicle type: {vehicle_type_info['vehicle_type']}")
-                else:
-                    # Try detecting from full image as fallback
-                    vehicle_type_info = vehicle_detector.detect(image)
-                    logger.info(f"Detected vehicle type from full image: {vehicle_type_info['vehicle_type']}")
-
-                # Add vehicle type text to the annotated image
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                type_text = f"Type: {vehicle_type_info['vehicle_type']}"
-                cv2.putText(image,
-                           type_text,
-                           (x_min, y_min - 40),  # Position above color text
-                           font, 0.8, (255, 165, 0), 2)
+                    region_type_info = vehicle_detector.detect(vehicle_region)
+                    if region_type_info["confidence"] > vehicle_type_info["confidence"]:
+                        vehicle_type_info = region_type_info
 
         # Save intermediate results
         # Note: base_name and intermediate_dir are now already defined above
@@ -313,6 +314,16 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
             hr = HazeRemoval()
             logger.info("Initialized HazeRemoval for low visibility video")
 
+        # Initialize font for text
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        
+        # Initialize vehicle type info with default values
+        vehicle_type_info = {
+            "vehicle_type": "Unknown",
+            "confidence": 0.0,
+            "alternatives": []
+        }
+
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
@@ -362,6 +373,11 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
             frame_texts = []
             frame_candidates = []
             frame_colors = []  # Track colors detected in this frame
+
+            # Update vehicle type detection from full frame first
+            initial_type_info = vehicle_detector.detect(frame)
+            if initial_type_info["confidence"] > vehicle_type_info["confidence"]:
+                vehicle_type_info = initial_type_info
 
             for i in range(num_detections):
                 # Use the confidence_threshold parameter instead of hardcoding 0.7
@@ -452,6 +468,13 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
                                   0.7,
                                   (0, 255, 255),  # Yellow color for visibility
                                   2)
+
+                    # Update vehicle type if we get a better detection from vehicle region
+                    if vehicle_region.size > 0:
+                        region_type_info = vehicle_detector.detect(vehicle_region)
+                        if region_type_info["confidence"] > vehicle_type_info["confidence"]:
+                            vehicle_type_info = region_type_info
+                            logger.info(f"Frame {frame_number}: Updated vehicle type: {vehicle_type_info['vehicle_type']}")
 
                     # Detect vehicle type from the vehicle region
                     vehicle_type_info = vehicle_detector.detect(frame)
