@@ -96,7 +96,7 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                 y_min, y_max = int(y_min * h), int(y_max * h)
                 
                 # Draw rectangle on detection image
-                cv2.rectangle(detection_image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+                cv2.rectangle(detection_image, (x_min, y_min), (x_max, x_max), (0, 255, 0), 2)
                 
                 # Extract and save plate region
                 localized_plate = image[y_min:y_max, x_min:x_max]
@@ -221,6 +221,24 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                     if region_type_info["confidence"] > vehicle_type_info["confidence"]:
                         vehicle_type_info = region_type_info
 
+                # Extract vehicle region from original image for type detection
+                vehicle_type_region = original_image[vehicle_region_y_min:vehicle_region_y_max, 
+                                      vehicle_region_x_min:vehicle_region_x_max]
+                
+                # Save the vehicle type region image for visualization
+                if vehicle_type_region.size > 0:
+                    vehicle_type_path = os.path.join(intermediate_dir, f"5_vehicle_type_{i}_{base_name}")
+                    cv2.imwrite(vehicle_type_path, vehicle_type_region)
+                    
+                    # Update vehicle type detection using clean region
+                    region_type_info = vehicle_detector.detect(vehicle_type_region)
+                    if region_type_info["confidence"] > vehicle_type_info["confidence"]:
+                        vehicle_type_info = region_type_info
+                        
+                    # Add vehicle type region path to result paths
+                    if i == 0:  # Only store the first vehicle's type region
+                        vehicle_type_path_rel = f"/results/tensorflow/intermediate/images/5_vehicle_type_{i}_{base_name}"
+
         # Save intermediate results
         # Note: base_name and intermediate_dir are now already defined above
         
@@ -269,7 +287,7 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                 "detection": f"/results/tensorflow/intermediate/images/2_detection_{base_name}",
                 "plates": plate_paths,
                 "vehicle_regions": vehicle_region_paths,
-                "vehicle_type_region": vehicle_region_paths[0] if vehicle_region_paths else None
+                "vehicle_type_region": vehicle_type_path_rel if 'vehicle_type_path_rel' in locals() else None
             },
             "intermediate_images": {
                 # Ensure array is contiguous before encoding
