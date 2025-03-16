@@ -239,6 +239,22 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                     if i == 0:  # Only store the first vehicle's type region
                         vehicle_type_path_rel = f"/results/tensorflow/intermediate/images/5_vehicle_type_{i}_{base_name}"
 
+        # If no plates were detected (empty lists)
+        if not localized_images and not extracted_texts:
+            logger.info("No license plates detected - attempting full image OCR")
+            
+            # Use the extract_text_from_plate function on the full image
+            full_image_text, full_image_candidates, full_image_ocr = extract_text_from_plate(
+                original_image, 
+                preprocessing_level='advanced'
+            )
+            
+            # Update the result lists
+            extracted_texts = [full_image_text]
+            text_candidates = [full_image_candidates]
+            original_ocr_texts = [full_image_ocr]
+            logger.info(f"Full image OCR result: {full_image_text} (Original: {full_image_ocr})")
+
         # Save intermediate results
         # Note: base_name and intermediate_dir are now already defined above
         
@@ -301,13 +317,14 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             "color_confidence": color_confidences[0] if color_confidences else full_image_color["confidence"],  # Primary color confidence
             "color_percentages": color_percentages,  # Add detailed color percentages
             "original_ocr_texts": original_ocr_texts,  # Include original OCR results
-            "license_plate": extracted_texts[0] if extracted_texts else "Unknown",
-            "original_ocr": original_ocr_texts[0] if original_ocr_texts else "Unknown",  # Include first original OCR
+            "license_plate": extracted_texts[0] if extracted_texts else "No text detected",
+            "original_ocr": original_ocr_texts[0] if original_ocr_texts else "No text detected",  # Include first original OCR
             "text_candidates": text_candidates[0] if text_candidates else [],  # Ensure this is a direct array, not nested
             "vehicle_region_coordinates": vehicle_regions,  # Include the coordinates for frontend highlighting
             "vehicle_type": vehicle_type_info["vehicle_type"],
             "vehicle_type_confidence": vehicle_type_info["confidence"],
-            "vehicle_type_alternatives": vehicle_type_info["alternatives"]
+            "vehicle_type_alternatives": vehicle_type_info["alternatives"],
+            "plate_detection_status": "full_image" if not localized_images else "plate_detected"
         }
 
         return result
