@@ -52,8 +52,19 @@
 │   │   ├── gf.py               # Guided Filter implementation
 │   │   ├── haze_removal.py     # Haze/Fog Removal implementation
 │   │   ├── vehicle_type.py     # Vehicle Type Detection using YOLOv8
-│   │   └── VTD/                # Vehicle and Traffic Detection
-│   │       └── yolov8n.pt      # YOLOv8 pre-trained model
+│   │   ├── VTD/                # Vehicle and Traffic Detection
+│   │   │   └── yolov8n.pt      # YOLOv8 pre-trained model
+│   │   └── VOI/                # Vehicle Orientation Identification
+│   │       ├── models/
+│   │       │   └── orientation_model_converted_saved_model/
+│   │       │       ├── variables/
+│   │       │       ├── saved_model.pb
+│   │       │       └── ...
+│   │       ├── orientation_model.h5
+│   │       ├── orientation_model.keras
+│   │       ├── orientation_model_converted_architecture.json
+│   │       ├── load-about.md
+│   │       └── predict_orientation.py
 │   ├── main.py
 │   └── ...
 ├── results/
@@ -62,9 +73,6 @@
 │   └── ... (uploaded images)
 ├── venv/
 ├── VOI/                        # Vehicle Orientation Identification
-│   ├── models/
-│   │   ├── orientation_model.h5
-│   │   └── orientation_model.keras
 │   ├── predict_orientation.py
 │   └── cmd.md
 ├── VTD/                        # Vehicle Detection Scripts

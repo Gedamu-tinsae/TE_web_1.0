@@ -2,8 +2,8 @@ import os
 import cv2
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras.models import load_model, save_model
 import logging
-from tensorflow.keras.models import load_model
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -11,7 +11,17 @@ logger = logging.getLogger(__name__)
 
 class VehicleOrientationDetector:
     def __init__(self):
-        self.model_path = 'c:\\Users\\80\\Desktop\\sem 8\\code\\VOI\\BoxCars\\models\\orientation_model.h5'
+        # Fix the path calculation
+        current_dir = os.path.dirname(os.path.abspath(__file__))  # /backend/app/models
+        app_dir = os.path.dirname(current_dir)                    # /backend/app
+        backend_dir = os.path.dirname(app_dir)                   # /backend
+        
+        # Now correctly point to /backend/VOI/models/orientation_model.h5
+        self.model_path = os.path.join(backend_dir, 'VOI', 'models', 'orientation_model.h5')
+        
+        # Log the actual path for debugging
+        logger.info(f"Looking for model at: {self.model_path}")
+        
         self.model = None
         self.load_model()
 
@@ -22,9 +32,25 @@ class VehicleOrientationDetector:
                 logger.error(f"Model file not found at {self.model_path}")
                 raise FileNotFoundError(f"Model file not found at {self.model_path}")
             
-            self.model = load_model(self.model_path)
+            # Try loading with minimal options
+            logger.info("Attempting model load with minimal configuration...")
+            try:
+                self.model = tf.keras.models.load_model(
+                    self.model_path,
+                    compile=False,
+                    custom_objects=None
+                )
+            except Exception as e:
+                # Try alternative loading method
+                logger.info("First attempt failed, trying alternative loading...")
+                self.model = load_model(
+                    self.model_path,
+                    compile=False
+                )
+            
             logger.info("Vehicle orientation model loaded successfully")
             return True
+            
         except Exception as e:
             logger.error(f"Error loading vehicle orientation model: {e}")
             return False

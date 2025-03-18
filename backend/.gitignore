@@ -24,3 +24,6 @@ results/
 .idea/
 *.swp
 *.swo
+
+#models
+VOI/
