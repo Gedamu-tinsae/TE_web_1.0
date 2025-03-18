@@ -1,3 +1,28 @@
+# Vehicle Orientation Identification (VOI) Module
+
+## Model Setup
+
+1. Create required directories:
+```bash
+mkdir -p app/models/VOI/models
+```
+
+2. Download the model file:
+```bash
+wget https://example.com/orientation_model.h5 -O app/models/VOI/models/orientation_model.h5
+```
+
+## Model Information
+
+The orientation model is trained to detect:
+- Front-facing vehicles
+- Rear-facing vehicles
+
+## Usage
+
+The model is automatically loaded by the VehicleOrientationDetector class.
+No additional setup is needed after placing the model file in the correct location.
+
 - python "c:\Users\80\Desktop\sem 8\code\VOI\BoxCars\scripts\process_orientation.py" --quick
 - python "c:\Users\80\Desktop\sem 8\code\VOI\BoxCars\scripts\process_orientation.py" --max_per_category 200
 - python "c:\Users\80\Desktop\sem 8\code\VOI\BoxCars\scripts\process_orientation.py" --quick --extract_samples
@@ -34,4 +59,4 @@ python 'c:\Users\80\Desktop\sem 8\code\VOI\test_image_orientation.py' --image "C
 ----
 python 'c:\Users\80\Desktop\sem 8\code\VOI\BoxCars\scripts\predict_orientation.py' --input "C:\Users\80\Desktop\sem 8\code\VOI\test images\image5.jpg" --output "C:\Users\80\Desktop\sem 8\code\VOI\test images\results"
 
-python 'c:\Users\80\Desktop\sem 8\code\VOI\BoxCars\scripts\predict_orientation.py' --input "C:\Users\80\Desktop\sem 8\code\VOI\test images\image6.png" --output "C:\Users\80\Desktop\sem 8\code\VOI\test images\results" 
+python 'c:\Users\80\Desktop\sem 8\code\VOI\BoxCars\scripts\predict_orientation.py' --input "C:\Users\80\Desktop\sem 8\code\VOI\test images\image6.png" --output "C:\Users\80\Desktop\sem 8\code\VOI\test images\results"

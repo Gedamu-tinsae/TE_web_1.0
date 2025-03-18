@@ -12,48 +12,47 @@ logger = logging.getLogger(__name__)
 class VehicleOrientationDetector:
     def __init__(self):
         # Fix the path calculation
-        current_dir = os.path.dirname(os.path.abspath(__file__))  # /backend/app/models
-        app_dir = os.path.dirname(current_dir)                    # /backend/app
-        backend_dir = os.path.dirname(app_dir)                   # /backend
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        models_dir = os.path.join(current_dir, 'VOI', 'models')
         
-        # Now correctly point to /backend/VOI/models/orientation_model.h5
-        self.model_path = os.path.join(backend_dir, 'VOI', 'models', 'orientation_model.h5')
-        
-        # Log the actual path for debugging
-        logger.info(f"Looking for model at: {self.model_path}")
+        # Try different model formats in order of preference
+        self.model_paths = {
+            'saved_model': os.path.join(models_dir, 'orientation_model_converted_saved_model'),
+            'keras': os.path.join(models_dir, 'orientation_model_converted.keras'),
+            'h5': os.path.join(models_dir, 'orientation_model.h5')
+        }
         
         self.model = None
+        self.model_type = None
         self.load_model()
 
     def load_model(self):
         """Load the orientation detection model."""
-        try:
-            if not os.path.exists(self.model_path):
-                logger.error(f"Model file not found at {self.model_path}")
-                raise FileNotFoundError(f"Model file not found at {self.model_path}")
-            
-            # Try loading with minimal options
-            logger.info("Attempting model load with minimal configuration...")
+        for model_type, model_path in self.model_paths.items():
             try:
-                self.model = tf.keras.models.load_model(
-                    self.model_path,
-                    compile=False,
-                    custom_objects=None
-                )
+                logger.info(f"Attempting to load {model_type} model from: {model_path}")
+                
+                if model_type == 'saved_model':
+                    self.model = tf.keras.models.load_model(model_path)
+                elif model_type == 'keras':
+                    self.model = tf.keras.models.load_model(model_path)
+                else:  # h5 format
+                    self.model = tf.keras.models.load_model(
+                        model_path,
+                        compile=False,
+                        custom_objects=None
+                    )
+                
+                self.model_type = model_type
+                logger.info(f"Successfully loaded {model_type} model")
+                return True
+                
             except Exception as e:
-                # Try alternative loading method
-                logger.info("First attempt failed, trying alternative loading...")
-                self.model = load_model(
-                    self.model_path,
-                    compile=False
-                )
-            
-            logger.info("Vehicle orientation model loaded successfully")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error loading vehicle orientation model: {e}")
-            return False
+                logger.error(f"Error loading {model_type} model: {e}")
+                continue
+        
+        logger.error("Failed to load model in any format")
+        return False
 
     def get_model_input_shape(self):
         """Get the expected input shape from the model."""
@@ -106,17 +105,19 @@ class VehicleOrientationDetector:
             # Add batch dimension
             img_batch = np.expand_dims(img, axis=0)
             
-            # Make prediction
-            prediction = self.model.predict(img_batch)[0][0]
+            # Make prediction based on model type
+            if self.model_type == 'saved_model':
+                prediction = self.model.predict(img_batch, verbose=0)[0][0]
+            else:
+                prediction = self.model.predict(img_batch, verbose=0)[0][0]
             
             # Convert probability to orientation
-            # > 0.5 is front (to_camera=True), <= 0.5 is rear (to_camera=False)
             orientation = "Front-facing" if prediction > 0.5 else "Rear-facing"
-            confidence = prediction if prediction > 0.5 else 1 - prediction
+            confidence = float(prediction if prediction > 0.5 else 1 - prediction)
             
             return {
                 "orientation": orientation,
-                "confidence": float(confidence),
+                "confidence": confidence,
                 "is_front": bool(prediction > 0.5)
             }
 
