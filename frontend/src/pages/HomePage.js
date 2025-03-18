@@ -741,6 +741,18 @@ const HomePage = () => {
                           )}
                         </div>
                       )}
+
+                      {/* Add Vehicle Orientation Information */}
+                      {processingInfo.vehicle_orientation && (
+                        <div className="vehicle-orientation-info">
+                          <strong>Vehicle Orientation:</strong> {processingInfo.vehicle_orientation}
+                          {processingInfo.orientation_confidence && (
+                            <span className="orientation-confidence"> 
+                              (Confidence: {(processingInfo.orientation_confidence * 100).toFixed(1)}%)
+                            </span>
+                          )}
+                        </div>
+                      )}
                       
                     </div>
                   )}

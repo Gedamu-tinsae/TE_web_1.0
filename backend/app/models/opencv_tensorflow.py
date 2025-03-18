@@ -9,6 +9,7 @@ import re  # Add missing import for regular expressions
 from .plate_correction import extract_text_from_plate, extract_text_from_region, get_reader, matches_pattern, looks_like_covid, generate_character_analysis_for_covid19
 from .color_detection import detect_vehicle_color, visualize_color_detection
 from .vehicle_type import vehicle_detector
+from .vehicle_orientation import vehicle_orientation_detector
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -262,6 +263,21 @@ def process_image(file_path, confidence_threshold=0.7):
             
             vehicle_region = original_image[vehicle_y_min:vehicle_y_max, vehicle_x_min:vehicle_x_max]
             
+            # Detect vehicle orientation from the vehicle region
+            vehicle_orientation_info = {
+                "orientation": "Unknown",
+                "confidence": 0.0,
+                "is_front": None
+            }
+            
+            if vehicle_region.size > 0 and vehicle_region.shape[0] > 10 and vehicle_region.shape[1] > 10:
+                vehicle_orientation_info = vehicle_orientation_detector.predict(vehicle_region)
+                logger.info(f"Detected vehicle orientation: {vehicle_orientation_info['orientation']}")
+            else:
+                # Try detecting from full image as fallback
+                vehicle_orientation_info = vehicle_orientation_detector.predict(image)
+                logger.info(f"Detected vehicle orientation from full image: {vehicle_orientation_info['orientation']}")
+            
             # Detect color from the vehicle region if it's valid
             if vehicle_region.size > 0 and vehicle_region.shape[0] > 10 and vehicle_region.shape[1] > 10:
                 region_color_info = detect_vehicle_color(vehicle_region)
@@ -492,6 +508,9 @@ def process_image(file_path, confidence_threshold=0.7):
                 "vehicle_type": vehicle_type_info["vehicle_type"],
                 "vehicle_type_confidence": vehicle_type_info["confidence"],
                 "vehicle_type_alternatives": vehicle_type_info["alternatives"],
+                "vehicle_orientation": vehicle_orientation_info["orientation"],
+                "orientation_confidence": vehicle_orientation_info["confidence"],
+                "is_front_facing": vehicle_orientation_info["is_front"],
             }
 
             return result

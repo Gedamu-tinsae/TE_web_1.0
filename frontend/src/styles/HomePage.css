@@ -914,6 +914,19 @@ body, html {
   font-style: italic;
 }
 
+.vehicle-orientation-info {
+  margin-bottom: 10px;
+  padding: 5px;
+  background-color: rgba(100, 149, 237, 0.1);
+  border-left: 3px solid #6495ED;
+}
+
+.orientation-confidence {
+  margin-left: 5px;
+  color: #888;
+  font-size: 0.9em;
+}
+
 
 
 
