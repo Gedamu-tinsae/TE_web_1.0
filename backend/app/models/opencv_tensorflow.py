@@ -9,7 +9,7 @@ import re  # Add missing import for regular expressions
 from .plate_correction import extract_text_from_plate, extract_text_from_region, get_reader, matches_pattern, looks_like_covid, generate_character_analysis_for_covid19
 from .color_detection import detect_vehicle_color, visualize_color_detection
 from .vehicle_type import vehicle_detector
-from .vehicle_orientation import vehicle_orientation_detector
+from .vehicle_orientation import vehicle_orientation_detector  # Add this import
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -342,6 +342,18 @@ def process_image(file_path, confidence_threshold=0.7):
                 (0, 255, 255), # Yellow color for visibility
                 2, 
                 cv2.LINE_AA
+            )
+            
+            # Add orientation text to the annotated image
+            orientation_text = f"Orientation: {vehicle_orientation_info['orientation']}"
+            annotated_image = cv2.putText(
+                annotated_image,
+                orientation_text,
+                (location[0][0][0], location[1][0][1]+150),  # Position below vehicle type
+                font,
+                0.8,
+                (255, 0, 255),  # Magenta color
+                2
             )
             
             logger.info("Annotated image with license plate text, rectangle and color information")

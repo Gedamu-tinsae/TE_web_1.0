@@ -7,6 +7,7 @@ import base64
 from .plate_correction import extract_text_from_plate, matches_pattern, looks_like_covid, generate_character_analysis_for_covid19
 from .color_detection import detect_vehicle_color, visualize_color_detection
 from .vehicle_type import vehicle_detector
+from .vehicle_orientation import vehicle_orientation_detector  # Add this import
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -239,6 +240,18 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                     if i == 0:  # Only store the first vehicle's type region
                         vehicle_type_path_rel = f"/results/tensorflow/intermediate/images/5_vehicle_type_{i}_{base_name}"
 
+                # Detect vehicle orientation
+                vehicle_orientation_info = vehicle_orientation_detector.predict(vehicle_region)
+                logger.info(f"Detected vehicle orientation: {vehicle_orientation_info['orientation']}")
+
+                # Add orientation text to the image
+                cv2.putText(image, f"Orientation: {vehicle_orientation_info['orientation']}",
+                            (x_min, y_min - 70),  # Position above color text
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.7,
+                            (255, 0, 255),  # Magenta color
+                            2)
+
         # If no plates were detected (empty lists)
         if not localized_images and not extracted_texts:
             logger.info("No license plates detected - attempting full image OCR")
@@ -324,6 +337,9 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             "vehicle_type": vehicle_type_info["vehicle_type"],
             "vehicle_type_confidence": vehicle_type_info["confidence"],
             "vehicle_type_alternatives": vehicle_type_info["alternatives"],
+            "vehicle_orientation": vehicle_orientation_info["orientation"],
+            "orientation_confidence": vehicle_orientation_info["confidence"],
+            "is_front_facing": vehicle_orientation_info["is_front"],
             "plate_detection_status": "full_image" if not localized_images else "plate_detected"
         }
 
