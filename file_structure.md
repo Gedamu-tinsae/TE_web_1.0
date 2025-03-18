@@ -61,6 +61,12 @@
 ├── uploads/
 │   └── ... (uploaded images)
 ├── venv/
+├── VOI/                        # Vehicle Orientation Identification
+│   ├── models/
+│   │   ├── orientation_model.h5
+│   │   └── orientation_model.keras
+│   ├── predict_orientation.py
+│   └── cmd.md
 ├── VTD/                        # Vehicle Detection Scripts
 │   ├── cmd-vtd.md             # Command documentation
 │   ├── verify_yolov8_image.py # Image detection verification
