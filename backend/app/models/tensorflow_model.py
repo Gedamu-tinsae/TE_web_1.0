@@ -283,6 +283,10 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             text_candidates = [full_image_candidates]
             original_ocr_texts = [full_image_ocr]
             logger.info(f"Full image OCR result: {full_image_text} (Original: {full_image_ocr})")
+            
+            # Initialize vehicle_orientation_info for the case where no plates are detected
+            vehicle_orientation_info = vehicle_orientation_detector.predict(original_image)
+            logger.info(f"Detected vehicle orientation from full image: {vehicle_orientation_info['orientation']}")
 
         # Save intermediate results
         # Note: base_name and intermediate_dir are now already defined above
@@ -350,7 +354,7 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             "vehicle_colors": vehicle_colors,  # Add vehicle colors to result
             "color_confidences": color_confidences,  # Add color confidences to result
             "vehicle_color": best_color,  # Primary vehicle color 
-            "color_confidence": best_color_confidence,  # Primary color confidence
+            "color_confidence": best_color_confidence,
             "full_image_color": full_image_color["color"],  # Add full image color
             "full_image_color_confidence": full_image_color["confidence"],  # Add full image color confidence
             "region_color": vehicle_colors[0] if vehicle_colors else "Unknown",  # Add region-specific color
@@ -414,6 +418,13 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
             "vehicle_type": "Unknown",
             "confidence": 0.0,
             "alternatives": []
+        }
+
+        # Initialize vehicle orientation info with default values
+        vehicle_orientation_info = {
+            "orientation": "Unknown",
+            "confidence": 0.0,
+            "is_front": None
         }
 
         while cap.isOpened():
@@ -568,6 +579,15 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
                             vehicle_type_info = region_type_info
                             logger.info(f"Frame {frame_number}: Updated vehicle type: {vehicle_type_info['vehicle_type']}")
 
+            # If no plates were detected, try to detect orientation from the full frame
+            if not frame_plates:
+                try:
+                    temp_orientation_info = vehicle_orientation_detector.predict(frame)
+                    if temp_orientation_info["confidence"] > vehicle_orientation_info["confidence"]:
+                        vehicle_orientation_info = temp_orientation_info
+                except Exception as e:
+                    logger.error(f"Error detecting orientation from full frame: {e}")
+
             # Store intermediate results for this frame
             all_intermediate_frames["original"].append(original_frame)
             all_intermediate_frames["detection"].append(detection_frame)
@@ -633,7 +653,10 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
                 "text_candidates": frame_candidates[0] if frame_candidates else [],  # Ensure this is a direct array, not nested
                 "vehicle_type": vehicle_type_info["vehicle_type"],
                 "vehicle_type_confidence": vehicle_type_info["confidence"],
-                "vehicle_type_alternatives": vehicle_type_info["alternatives"]
+                "vehicle_type_alternatives": vehicle_type_info["alternatives"],
+                "vehicle_orientation": vehicle_orientation_info["orientation"],
+                "orientation_confidence": vehicle_orientation_info["confidence"],
+                "is_front_facing": vehicle_orientation_info["is_front"]
             }
 
             return result
