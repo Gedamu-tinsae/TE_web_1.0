@@ -20,11 +20,11 @@ def detect_vehicle_color(image):
         
         # Define color ranges in HSV
         color_ranges = {
-            # Improved white detection with broader value range and lower saturation threshold
-            "white": [(0, 0, 180), (180, 30, 255)],  # White has very low saturation and high value
-            "black": [(0, 0, 0), (180, 30, 60)],     # Black has low value
-            "gray": [(0, 0, 60), (180, 30, 180)],    # Gray has low saturation and medium value
-            "silver": [(0, 0, 140), (180, 30, 220)], # Silver is similar to white but less bright
+            # Fix the white detection range - restrict it more to avoid detecting black as white
+            "white": [(0, 0, 200), (180, 25, 255)],  # Narrower definition of white - higher value required
+            "black": [(0, 0, 0), (180, 45, 40)],     # Expand black range slightly to capture more dark areas
+            "gray": [(0, 0, 60), (180, 35, 160)],    # Adjust gray to not overlap with white as much
+            "silver": [(0, 0, 160), (180, 30, 220)], # Silver is between gray and white
             "red1": [(0, 70, 50), (10, 255, 255)],   # Red wraps around the hue spectrum
             "red2": [(170, 70, 50), (180, 255, 255)],
             "orange": [(10, 70, 50), (25, 255, 255)],
@@ -87,31 +87,52 @@ def detect_vehicle_color(image):
                 else:
                     color_counts["white"] += color_counts["silver"] * 0.5
         
-        # 3. Black is often underdetected
+        # 3. Black is often underdetected - boost black detection more
         if "black" in color_counts:
-            color_counts["black"] *= 1.2  # Boost black detection
+            color_counts["black"] *= 1.5  # Increase the boost for black (was 1.2)
             
-        # 4. Handle special case with gray/silver/white vehicles
+        # 4. Handle special case with gray/silver/white/black vehicles
         if (("gray" in color_counts and color_counts["gray"] > 15) or
             ("silver" in color_counts and color_counts["silver"] > 15) or
-            ("white" in color_counts and color_counts["white"] > 15)):
+            ("white" in color_counts and color_counts["white"] > 15) or
+            ("black" in color_counts and color_counts["black"] > 10)):
             
             # Compute brightness and saturation statistics
             avg_v = np.mean(hsv_image[:,:,2])
             avg_s = np.mean(hsv_image[:,:,1])
             
+            # Add a histogram analysis for better black/white differentiation
+            v_channel = hsv_image[:,:,2]
+            hist = cv2.calcHist([v_channel], [0], None, [256], [0, 256])
+            dark_pixel_ratio = np.sum(hist[:50]) / np.sum(hist)  # Ratio of very dark pixels
+            light_pixel_ratio = np.sum(hist[200:]) / np.sum(hist)  # Ratio of very light pixels
+            
+            logger.info(f"Brightness stats - avg_v: {avg_v}, dark ratio: {dark_pixel_ratio:.2f}, light ratio: {light_pixel_ratio:.2f}")
+            
+            # Black detection - very low brightness
+            if avg_v < 60 or dark_pixel_ratio > 0.5:
+                logger.info("Detected likely black vehicle based on low brightness")
+                color_counts["black"] = max(color_counts.get("black", 0), 40)  # Stronger bias for black
+                # Reduce white if it was incorrectly detected
+                if "white" in color_counts:
+                    color_counts["white"] *= 0.5
+            
             # Very high brightness and low saturation usually means white
-            if avg_v > 180 and avg_s < 40:
-                color_counts["white"] = max(color_counts.get("white", 0), 30)
+            elif avg_v > 200 and avg_s < 30 and light_pixel_ratio > 0.4:
+                logger.info("Detected likely white vehicle based on high brightness")
+                color_counts["white"] = max(color_counts.get("white", 0), 40)
+                # Reduce black if it was incorrectly detected
+                if "black" in color_counts:
+                    color_counts["black"] *= 0.5
                 
             # Medium brightness and low saturation usually means silver
-            elif avg_v > 140 and avg_v <= 180 and avg_s < 40:
+            elif avg_v > 140 and avg_v <= 200 and avg_s < 40:
                 color_counts["silver"] = max(color_counts.get("silver", 0), 30)
                 
             # Low brightness and low saturation usually means gray or black
             elif avg_v <= 140 and avg_s < 40:
                 if avg_v < 80:
-                    color_counts["black"] = max(color_counts.get("black", 0), 30)
+                    color_counts["black"] = max(color_counts.get("black", 0), 35)
                 else:
                     color_counts["gray"] = max(color_counts.get("gray", 0), 30)
         
@@ -125,7 +146,9 @@ def detect_vehicle_color(image):
         # Calculate percentages for all colors
         color_percentages = {color: round(percentage, 2) for color, percentage in color_counts.items()}
         
+        # Add debug information
         logger.info(f"Detected color: {dominant_color[0]} with confidence {confidence:.2f}")
+        logger.info(f"Color percentages: {', '.join([f'{c}: {p:.1f}%' for c, p in sorted(color_percentages.items(), key=lambda x: x[1], reverse=True)[:3]])}")
         
         return {
             "color": dominant_color[0],
