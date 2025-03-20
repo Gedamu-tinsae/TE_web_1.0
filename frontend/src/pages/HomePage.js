@@ -463,61 +463,67 @@ const HomePage = () => {
 
                       {/* After vehicle color section in the More window, update vehicle type region section */}
                       <h4>Vehicle Type Detection:</h4>
-                      {processingInfo.intermediate_steps.vehicle_type_region ? (
-                        <div className="vehicle-type-region">
-                          <p><strong>Vehicle Type Detection Region:</strong></p>
-                          <img 
-                            src={`http://172.20.10.10:8000${processingInfo.intermediate_steps.vehicle_type_region}`}
-                            alt="Vehicle Type Detection Region"
-                            onError={(e) => {
-                              console.log('Error loading vehicle type region image');
-                              e.target.style.display = 'none';
-                              e.target.parentNode.innerHTML += `
-                                <div class="missing-region">
-                                  <p>Vehicle type region image not available.</p>
-                                  <p>Vehicle type detected: ${processingInfo.vehicle_type || 'Unknown'}</p>
-                                  <p>Confidence: ${processingInfo.vehicle_type_confidence ? 
-                                    (processingInfo.vehicle_type_confidence * 100).toFixed(1) + '%' : 'N/A'}</p>
-                                </div>`;
-                            }}
-                          />
-                          <p className="type-detection-caption">
-                            Region used for vehicle type detection: {processingInfo.vehicle_type || 'Unknown'}
-                            {processingInfo.vehicle_type_confidence && 
-                              ` (Confidence: ${(processingInfo.vehicle_type_confidence * 100).toFixed(1)}%)`}
-                          </p>
-                          
-                          {/* Show both full image and region detection results separately */}
-                          <div className="type-detection-details">
-                            <div className="full-image-detection">
-                              <strong>Full Image Detection:</strong> {processingInfo.full_image_type || 'Unknown'}
-                              {processingInfo.full_image_type_confidence && 
-                                <span className="type-confidence"> (Confidence: {(processingInfo.full_image_type_confidence * 100).toFixed(1)}%)</span>}
-                            </div>
-                            
-                            <div className="region-detection">
-                              <strong>Region Detection:</strong> {processingInfo.region_type || 'Unknown'}
-                              {processingInfo.region_type_confidence && 
-                                <span className="type-confidence"> (Confidence: {(processingInfo.region_type_confidence * 100).toFixed(1)}%)</span>}
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="missing-region">
-                          <p>No dedicated region image available for vehicle type detection.</p>
-                          <p>Vehicle type was detected from the full image.</p>
-                          <p>Detected type: {processingInfo.vehicle_type || 'Unknown'}</p>
-                          {processingInfo.vehicle_type_confidence && 
-                            <p>Confidence: {(processingInfo.vehicle_type_confidence * 100).toFixed(1)}%</p>}
-                            
-                          {/* Show full image detection result */}
+                      <div className="vehicle-type-detection-section">
+                        {/* First, show the full image used for vehicle type detection */}
+                        <div className="full-image-type-section">
+                          <p><strong>Full Image Used for Type Detection:</strong></p>
+                          {processingInfo.intermediate_steps.full_image_type ? (
+                            <img 
+                              src={`http://172.20.10.10:8000${processingInfo.intermediate_steps.full_image_type}`}
+                              alt="Full Image Type Detection"
+                              className="type-detection-image"
+                              onError={(e) => {
+                                console.log('Error loading full image type detection');
+                                e.target.style.display = 'none';
+                                e.target.parentNode.innerHTML += '<div class="error-message">Full image type detection image failed to load.</div>';
+                              }}
+                            />
+                          ) : (
+                            <div className="missing-image">Full image type detection image not available.</div>
+                          )}
                           <div className="full-image-detection">
                             <strong>Full Image Detection:</strong> {processingInfo.full_image_type || 'Unknown'}
                             {processingInfo.full_image_type_confidence && 
                               <span className="type-confidence"> (Confidence: {(processingInfo.full_image_type_confidence * 100).toFixed(1)}%)</span>}
                           </div>
                         </div>
-                      )}
+                        
+                        {/* Then, show the vehicle region used for type detection if available */}
+                        <div className="region-type-section">
+                          <p><strong>Vehicle Region Used for Type Detection:</strong></p>
+                          {processingInfo.intermediate_steps.vehicle_type_region ? (
+                            <img 
+                              src={`http://172.20.10.10:8000${processingInfo.intermediate_steps.vehicle_type_region}`}
+                              alt="Vehicle Type Detection Region"
+                              className="type-detection-image"
+                              onError={(e) => {
+                                console.log('Error loading vehicle type region image');
+                                e.target.style.display = 'none';
+                                e.target.parentNode.innerHTML += '<div class="error-message">Vehicle region type detection image failed to load.</div>';
+                              }}
+                            />
+                          ) : (
+                            <div className="missing-image">Vehicle region type detection image not available.</div>
+                          )}
+                          <div className="region-detection">
+                            <strong>Region Detection:</strong> {processingInfo.region_type || 'Unknown'}
+                            {processingInfo.region_type_confidence && 
+                              <span className="type-confidence"> (Confidence: {(processingInfo.region_type_confidence * 100).toFixed(1)}%)</span>}
+                          </div>
+                        </div>
+                        
+                        {/* Finally, show the final vehicle type determination */}
+                        <div className="best-detection-section">
+                          <p><strong>Final Vehicle Type Determination:</strong></p>
+                          <div className="best-detection">
+                            <strong>Best Detection:</strong> {processingInfo.vehicle_type}
+                            {processingInfo.vehicle_type_confidence && 
+                              <span className="type-confidence"> (Confidence: {(processingInfo.vehicle_type_confidence * 100).toFixed(1)}%)</span>}
+                            {processingInfo.best_type_source && 
+                              <span className="source-indicator"> [Source: {processingInfo.best_type_source === 'region' ? 'Vehicle Region' : 'Full Image'}]</span>}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

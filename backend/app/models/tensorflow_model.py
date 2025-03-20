@@ -84,8 +84,14 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
         
         # Detect vehicle type from full image first
         initial_type_info = vehicle_detector.detect(image)
-        # Store the full image detection result separately instead of overwriting
+        # Store the full image detection result separately
         full_image_type_info = initial_type_info
+        
+        # Also save the original image used for vehicle type detection
+        full_image_type_path = os.path.join(intermediate_dir, f"6_full_image_type_{base_name}")
+        cv2.imwrite(full_image_type_path, image.copy())
+        full_image_type_path_rel = f"/results/tensorflow/intermediate/images/6_full_image_type_{base_name}"
+        
         if initial_type_info["confidence"] > 0.3:  # Set a minimum threshold
             vehicle_type_info = initial_type_info
 
@@ -320,7 +326,8 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                 "detection": f"/results/tensorflow/intermediate/images/2_detection_{base_name}",
                 "plates": plate_paths,
                 "vehicle_regions": vehicle_region_paths,
-                "vehicle_type_region": vehicle_type_path_rel if 'vehicle_type_path_rel' in locals() else None
+                "vehicle_type_region": vehicle_type_path_rel if 'vehicle_type_path_rel' in locals() else None,
+                "full_image_type": full_image_type_path_rel  # Add full image path
             },
             "intermediate_images": {
                 # Ensure array is contiguous before encoding
@@ -349,7 +356,8 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             "vehicle_orientation": vehicle_orientation_info["orientation"],
             "orientation_confidence": vehicle_orientation_info["confidence"],
             "is_front_facing": vehicle_orientation_info["is_front"],
-            "plate_detection_status": "full_image" if not localized_images else "plate_detected"
+            "plate_detection_status": "full_image" if not localized_images else "plate_detected",
+            "best_type_source": "region" if vehicle_type_info["confidence"] > full_image_type_info["confidence"] else "full_image"
         }
 
         return result
