@@ -927,6 +927,69 @@ body, html {
   font-size: 0.9em;
 }
 
+/* Update vehicle type info styling */
+.vehicle-type-info {
+  margin: 15px 0;
+  padding: 12px;
+  background-color: rgba(255, 165, 0, 0.1);
+  border-left: 3px solid #ffa500;
+  border-radius: 4px;
+}
+
+.vehicle-type-info h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #ffa500;
+  font-size: 1.1rem;
+}
+
+.best-detection {
+  font-size: 1.05rem;
+  padding: 8px;
+  background-color: rgba(0, 128, 0, 0.1);
+  border-left: 3px solid #00a000;
+  margin-bottom: 8px;
+}
+
+.full-image-detection, 
+.region-detection {
+  padding: 6px 8px;
+  background-color: rgba(255, 255, 255, 0.05);
+  margin-bottom: 5px;
+}
+
+.full-image-detection {
+  border-left: 3px solid #54a0ff;
+}
+
+.region-detection {
+  border-left: 3px solid #ff9f43;
+}
+
+.type-confidence {
+  margin-left: 5px;
+  color: #888;
+  font-size: 0.9em;
+}
+
+.vehicle-alternatives {
+  margin-top: 10px;
+  padding: 8px;
+  background-color: rgba(255, 165, 0, 0.05);
+}
+
+.vehicle-alternatives p {
+  margin-top: 0;
+  margin-bottom: 5px;
+}
+
+.vehicle-alternative-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 10px;
+  margin: 2px 0;
+}
+
 
 
 

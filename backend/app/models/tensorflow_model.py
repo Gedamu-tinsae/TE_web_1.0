@@ -84,6 +84,8 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
         
         # Detect vehicle type from full image first
         initial_type_info = vehicle_detector.detect(image)
+        # Store the full image detection result separately instead of overwriting
+        full_image_type_info = initial_type_info
         if initial_type_info["confidence"] > 0.3:  # Set a minimum threshold
             vehicle_type_info = initial_type_info
 
@@ -219,6 +221,7 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                 # Update vehicle type if we get a better detection from the region
                 if vehicle_region.size > 0:
                     region_type_info = vehicle_detector.detect(vehicle_region)
+                    # Store this separately instead of conditionally overwriting
                     if region_type_info["confidence"] > vehicle_type_info["confidence"]:
                         vehicle_type_info = region_type_info
 
@@ -233,6 +236,7 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                     
                     # Update vehicle type detection using clean region
                     region_type_info = vehicle_detector.detect(vehicle_type_region)
+                    # Store this separately instead of conditionally overwriting
                     if region_type_info["confidence"] > vehicle_type_info["confidence"]:
                         vehicle_type_info = region_type_info
                         
@@ -337,6 +341,11 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             "vehicle_type": vehicle_type_info["vehicle_type"],
             "vehicle_type_confidence": vehicle_type_info["confidence"],
             "vehicle_type_alternatives": vehicle_type_info["alternatives"],
+            # Add both detection results separately
+            "full_image_type": full_image_type_info["vehicle_type"],
+            "full_image_type_confidence": full_image_type_info["confidence"],
+            "region_type": vehicle_type_info["vehicle_type"] if vehicle_type_info["confidence"] > full_image_type_info["confidence"] else "Unknown",
+            "region_type_confidence": vehicle_type_info["confidence"] if vehicle_type_info["confidence"] > full_image_type_info["confidence"] else 0.0,
             "vehicle_orientation": vehicle_orientation_info["orientation"],
             "orientation_confidence": vehicle_orientation_info["confidence"],
             "is_front_facing": vehicle_orientation_info["is_front"],

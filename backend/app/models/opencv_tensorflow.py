@@ -289,14 +289,18 @@ def process_image(file_path, confidence_threshold=0.7):
                 logger.warning("Invalid vehicle region. Using full image color detection.")
                 # Keep the original full-image color_info
             
+            # First detect vehicle type from full image
+            full_image_type_info = vehicle_detector.detect(image)
+            logger.info(f"Detected vehicle type from full image: {full_image_type_info['vehicle_type']}")
+            
             # Detect vehicle type from the vehicle region
+            region_type_info = {"vehicle_type": "Unknown", "confidence": 0.0, "alternatives": []}
             if vehicle_region.size > 0:
-                vehicle_type_info = vehicle_detector.detect(vehicle_region)
-                logger.info(f"Detected vehicle type: {vehicle_type_info['vehicle_type']}")
-            else:
-                # Try detecting from full image as fallback
-                vehicle_type_info = vehicle_detector.detect(image)
-                logger.info(f"Detected vehicle type from full image: {vehicle_type_info['vehicle_type']}")
+                region_type_info = vehicle_detector.detect(vehicle_region)
+                logger.info(f"Detected vehicle type from region: {region_type_info['vehicle_type']}")
+            
+            # Determine which detection to use based on confidence
+            vehicle_type_info = region_type_info if region_type_info["confidence"] > full_image_type_info["confidence"] else full_image_type_info
 
             # Draw annotations with vehicle type information
             font = cv2.FONT_HERSHEY_SIMPLEX
@@ -520,6 +524,11 @@ def process_image(file_path, confidence_threshold=0.7):
                 "vehicle_type": vehicle_type_info["vehicle_type"],
                 "vehicle_type_confidence": vehicle_type_info["confidence"],
                 "vehicle_type_alternatives": vehicle_type_info["alternatives"],
+                # Add both detection results separately
+                "full_image_type": full_image_type_info["vehicle_type"],
+                "full_image_type_confidence": full_image_type_info["confidence"],
+                "region_type": region_type_info["vehicle_type"],
+                "region_type_confidence": region_type_info["confidence"],
                 "vehicle_orientation": vehicle_orientation_info["orientation"],
                 "orientation_confidence": vehicle_orientation_info["confidence"],
                 "is_front_facing": vehicle_orientation_info["is_front"],
