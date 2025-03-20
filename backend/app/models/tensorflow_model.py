@@ -74,6 +74,12 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
         
         # Detect vehicle color from the full image first (as a fallback)
         full_image_color = detect_vehicle_color(original_image)
+        logger.info(f"Detected vehicle color from full image: {full_image_color['color']}")
+        
+        # Save full image for color detection visualization
+        full_image_color_path = os.path.join(intermediate_dir, f"7_full_image_color_{base_name}")
+        cv2.imwrite(full_image_color_path, original_image.copy())
+        full_image_color_path_rel = f"/results/tensorflow/intermediate/images/7_full_image_color_{base_name}"
         
         # Initialize vehicle type detection with default values
         vehicle_type_info = {
@@ -149,7 +155,7 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                     
                     # Store color percentages for the first detected vehicle (primary vehicle)
                     if i == 0:
-                        color_percentages = color_info.get("color_percentages", {})
+                        region_color_percentages = color_info.get("color_percentages", {})
                     
                     # Also save the vehicle region image for visualization
                     vehicle_region_path = os.path.join(intermediate_dir, f"4_vehicle_region_{i}_{base_name}")
@@ -162,7 +168,7 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                     
                     # Use full image color percentages if this is the first detection
                     if i == 0:
-                        color_percentages = full_image_color.get("color_percentages", {})
+                        region_color_percentages = full_image_color.get("color_percentages", {})
                 
                 # Draw the vehicle region rectangle on the detection image (for visualization)
                 # Use a different color (yellow) to differentiate from plate detection
@@ -314,8 +320,13 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
         cv2.imwrite(final_path, image)
 
         # Get color percentages if not set yet (no detections)
-        if 'color_percentages' not in locals():
-            color_percentages = full_image_color.get("color_percentages", {})
+        if not vehicle_colors:
+            region_color_percentages = {}
+            best_color = full_image_color["color"]
+            best_color_confidence = full_image_color["confidence"] 
+        else:
+            best_color = vehicle_colors[0]
+            best_color_confidence = color_confidences[0]
 
         result = {
             "status": "success",
@@ -327,7 +338,8 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                 "plates": plate_paths,
                 "vehicle_regions": vehicle_region_paths,
                 "vehicle_type_region": vehicle_type_path_rel if 'vehicle_type_path_rel' in locals() else None,
-                "full_image_type": full_image_type_path_rel  # Add full image path
+                "full_image_type": full_image_type_path_rel,  # Add full image path for type
+                "full_image_color": full_image_color_path_rel  # Add full image path for color
             },
             "intermediate_images": {
                 # Ensure array is contiguous before encoding
@@ -337,9 +349,15 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             "detected_plates": extracted_texts,
             "vehicle_colors": vehicle_colors,  # Add vehicle colors to result
             "color_confidences": color_confidences,  # Add color confidences to result
-            "vehicle_color": vehicle_colors[0] if vehicle_colors else full_image_color["color"],  # Primary vehicle color
-            "color_confidence": color_confidences[0] if color_confidences else full_image_color["confidence"],  # Primary color confidence
-            "color_percentages": color_percentages,  # Add detailed color percentages
+            "vehicle_color": best_color,  # Primary vehicle color 
+            "color_confidence": best_color_confidence,  # Primary color confidence
+            "full_image_color": full_image_color["color"],  # Add full image color
+            "full_image_color_confidence": full_image_color["confidence"],  # Add full image color confidence
+            "region_color": vehicle_colors[0] if vehicle_colors else "Unknown",  # Add region-specific color
+            "region_color_confidence": color_confidences[0] if color_confidences else 0.0,  # Add region-specific confidence
+            "color_percentages": full_image_color.get("color_percentages", {}),  # Full image color percentages
+            "region_color_percentages": region_color_percentages if 'region_color_percentages' in locals() else {},  # Region color percentages
+            "best_color_source": "region" if (vehicle_colors and color_confidences[0] > full_image_color["confidence"]) else "full_image",
             "original_ocr_texts": original_ocr_texts,  # Include original OCR results
             "license_plate": extracted_texts[0] if extracted_texts else "No text detected",
             "original_ocr": original_ocr_texts[0] if original_ocr_texts else "No text detected",  # Include first original OCR

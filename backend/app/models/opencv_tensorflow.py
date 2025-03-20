@@ -37,8 +37,8 @@ def process_image(file_path, confidence_threshold=0.7):
         logger.info("Image loaded successfully")
 
         # Detect vehicle color from the full image
-        color_info = detect_vehicle_color(image)
-        logger.info(f"Detected vehicle color: {color_info['color']}")
+        full_image_color = detect_vehicle_color(image)
+        logger.info(f"Detected vehicle color from full image: {full_image_color['color']}")
 
         # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -407,6 +407,11 @@ def process_image(file_path, confidence_threshold=0.7):
             intermediate_dir = os.path.join("results", "opencv", "intermediate", "images")
             os.makedirs(intermediate_dir, exist_ok=True)
             
+            # Save full image for color detection visualization
+            full_image_color_path = os.path.join(intermediate_dir, f"full_image_color_{os.path.basename(file_path)}")
+            cv2.imwrite(full_image_color_path, image.copy())
+            full_image_color_rel = f"/results/opencv/intermediate/images/full_image_color_{os.path.basename(file_path)}"
+            
             # Extract the vehicle region
             vehicle_region = original_image[vehicle_y_min:vehicle_y_max, vehicle_x_min:vehicle_x_max]
             
@@ -417,6 +422,10 @@ def process_image(file_path, confidence_threshold=0.7):
                 # Save the vehicle region for visualization
                 vehicle_region_file = os.path.join(intermediate_dir, f"vehicle_region_{os.path.basename(file_path)}")
                 cv2.imwrite(vehicle_region_file, vehicle_region)
+                vehicle_region_rel = f"/results/opencv/intermediate/images/vehicle_region_{os.path.basename(file_path)}"
+                intermediate_steps = {
+                    "vehicle_region": vehicle_region_rel
+                }
                 
                 # Draw the vehicle region on the annotated image with a different color (yellow)
                 annotated_image = cv2.rectangle(annotated_image, 
@@ -428,11 +437,21 @@ def process_image(file_path, confidence_threshold=0.7):
                 region_color_info = detect_vehicle_color(vehicle_region)
                 logger.info(f"Detected vehicle color from region: {region_color_info['color']}")
                 
-                # Use the color detected from the vehicle region if available
-                color_info = region_color_info
+                # Store both color detections
+                region_color = region_color_info["color"]
+                region_color_confidence = region_color_info["confidence"]
+                region_color_percentages = region_color_info.get("color_percentages", {})
+                
+                # Use the color detected from the vehicle region if confidence is higher
+                color_info = region_color_info if region_color_info["confidence"] > full_image_color["confidence"] else full_image_color
+                best_color_source = "region" if region_color_info["confidence"] > full_image_color["confidence"] else "full_image"
             else:
                 logger.warning(f"Invalid vehicle region shape: {vehicle_region.shape if hasattr(vehicle_region, 'shape') else 'unknown'}")
                 # Keep using the full image color detection
+                region_color = "Unknown"
+                region_color_confidence = 0.0
+                region_color_percentages = {}
+                best_color_source = "full_image"
 
             # Save the annotated image in the opencv/images subfolder
             result_image_path = os.path.join("results", "opencv", "images", os.path.basename(file_path))
@@ -511,14 +530,21 @@ def process_image(file_path, confidence_threshold=0.7):
                 "status": "success",
                 "result_url": f"/results/opencv/images/{os.path.basename(result_image_path)}",
                 "intermediate_images": intermediate_images,
+                "intermediate_steps": intermediate_steps,  # Include intermediate steps dictionary
                 "license_plate": license_plate,
                 "original_ocr": original_ocr_text,  # Include original OCR text
                 "filename": file_path,
                 "customer_data": customer_data,
                 "text_candidates": text_candidates,  # Already a direct array from our extraction function
-                "vehicle_color": color_info["color"],  # Include detected vehicle color
-                "color_confidence": color_info["confidence"],  # Include color detection confidence
-                "color_percentages": color_info.get("color_percentages", {}),  # Include detailed color percentages if available
+                "vehicle_color": color_info["color"],  # Best color (either from region or full image)
+                "color_confidence": color_info["confidence"],
+                "full_image_color": full_image_color["color"],  # Full image color
+                "full_image_color_confidence": full_image_color["confidence"],
+                "region_color": region_color,  # Region-specific color
+                "region_color_confidence": region_color_confidence,
+                "color_percentages": full_image_color.get("color_percentages", {}),  # Full image color percentages
+                "region_color_percentages": region_color_percentages,  # Region color percentages
+                "best_color_source": best_color_source,  # Which source gave the best color detection
                 "vehicle_region_coordinates": vehicle_region_coordinates,  # Include the coordinates
                 "debug_info": debug_info,  # Add debug info to help diagnose issues
                 "vehicle_type": vehicle_type_info["vehicle_type"],

@@ -461,7 +461,151 @@ const HomePage = () => {
                         </p>
                       )}
 
-                      {/* After vehicle color section in the More window, update vehicle type region section */}
+                      {/* After vehicle color section in the More window, update vehicle color detection section */}
+                      <h4>Vehicle Color Detection:</h4>
+                      <div className="vehicle-color-detection-section">
+                        {/* First, show the full image used for color detection */}
+                        <div className="full-image-color-section">
+                          <p><strong>Full Image Used for Color Detection:</strong></p>
+                          {processingInfo.intermediate_steps && processingInfo.intermediate_steps.full_image_color ? (
+                            <img 
+                              src={`http://172.20.10.10:8000${processingInfo.intermediate_steps.full_image_color}`}
+                              alt="Full Image Color Detection"
+                              className="color-detection-image"
+                              onError={(e) => {
+                                console.log('Error loading full image color detection');
+                                e.target.style.display = 'none';
+                                e.target.parentNode.innerHTML += '<div class="error-message">Full image color detection image failed to load.</div>';
+                              }}
+                            />
+                          ) : (
+                            <div className="missing-image">Full image color detection image not available.</div>
+                          )}
+                          <div className="full-image-color-info">
+                            <strong>Full Image Color:</strong> {processingInfo.full_image_color || 'Unknown'}
+                            {processingInfo.full_image_color_confidence && 
+                              <span className="color-confidence"> (Confidence: {(processingInfo.full_image_color_confidence * 100).toFixed(1)}%)</span>}
+                          </div>
+                          {/* Show color bars for full image */}
+                          {processingInfo.color_percentages && Object.keys(processingInfo.color_percentages).length > 0 && (
+                            <div className="color-analysis mini">
+                              <h5>Full Image Color Distribution:</h5>
+                              <div className="color-bars">
+                                {Object.entries(processingInfo.color_percentages)
+                                  .sort((a, b) => b[1] - a[1])
+                                  .map(([color, percentage], index) => (
+                                    <div key={index} className="color-bar-row">
+                                      <div 
+                                        className="color-swatch"
+                                        style={{ 
+                                          backgroundColor: color,
+                                          border: color === 'white' ? '1px solid #ccc' : 'none'
+                                        }}
+                                      ></div>
+                                      <div className="color-label">{color.charAt(0).toUpperCase() + color.slice(1)}</div>
+                                      <div className="color-bar-container">
+                                        <div 
+                                          className="color-bar-fill" 
+                                          style={{ 
+                                            width: `${Math.min(100, percentage)}%`,
+                                            backgroundColor: getColorForBar(color)
+                                          }}
+                                        ></div>
+                                      </div>
+                                      <div className="color-percentage">{percentage.toFixed(1)}%</div>
+                                    </div>
+                                  ))
+                                  .slice(0, 3) /* Show top 3 colors only for compact view */
+                                }
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Then, show the vehicle region used for color detection if available */}
+                        <div className="region-color-section">
+                          <p><strong>Vehicle Region Used for Color Detection:</strong></p>
+                          {processingInfo.intermediate_steps && processingInfo.intermediate_steps.vehicle_region ? (
+                            <img 
+                              src={`http://172.20.10.10:8000${processingInfo.intermediate_steps.vehicle_region}`}
+                              alt="Vehicle Region Color Detection"
+                              className="color-detection-image"
+                              onError={(e) => {
+                                console.log('Error loading vehicle region color image');
+                                e.target.style.display = 'none';
+                                e.target.parentNode.innerHTML += '<div class="error-message">Vehicle region color detection image failed to load.</div>';
+                              }}
+                            />
+                          ) : (
+                            intermediateImages.vehicle_region ? (
+                              <img 
+                                src={`data:image/jpeg;base64,${intermediateImages.vehicle_region}`} 
+                                alt="Vehicle Region"
+                                onError={(e) => {
+                                  console.log('Error loading vehicle region image');
+                                  e.target.style.display = 'none';
+                                  e.target.parentNode.innerHTML += '<div class="error-message">Vehicle region image could not be loaded.</div>';
+                                }}
+                              />
+                            ) : (
+                              <div className="missing-image">Vehicle region color detection image not available.</div>
+                            )
+                          )}
+                          <div className="region-color-info">
+                            <strong>Region Color:</strong> {processingInfo.region_color || 'Unknown'}
+                            {processingInfo.region_color_confidence && 
+                              <span className="color-confidence"> (Confidence: {(processingInfo.region_color_confidence * 100).toFixed(1)}%)</span>}
+                          </div>
+                          {/* Show color bars for region */}
+                          {processingInfo.region_color_percentages && Object.keys(processingInfo.region_color_percentages).length > 0 && (
+                            <div className="color-analysis mini">
+                              <h5>Region Color Distribution:</h5>
+                              <div className="color-bars">
+                                {Object.entries(processingInfo.region_color_percentages)
+                                  .sort((a, b) => b[1] - a[1])
+                                  .map(([color, percentage], index) => (
+                                    <div key={index} className="color-bar-row">
+                                      <div 
+                                        className="color-swatch"
+                                        style={{ 
+                                          backgroundColor: color,
+                                          border: color === 'white' ? '1px solid #ccc' : 'none'
+                                        }}
+                                      ></div>
+                                      <div className="color-label">{color.charAt(0).toUpperCase() + color.slice(1)}</div>
+                                      <div className="color-bar-container">
+                                        <div 
+                                          className="color-bar-fill" 
+                                          style={{ 
+                                            width: `${Math.min(100, percentage)}%`,
+                                            backgroundColor: getColorForBar(color)
+                                          }}
+                                        ></div>
+                                      </div>
+                                      <div className="color-percentage">{percentage.toFixed(1)}%</div>
+                                    </div>
+                                  ))
+                                  .slice(0, 3) /* Show top 3 colors only for compact view */
+                                }
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Finally, show the final vehicle color determination */}
+                        <div className="best-color-section">
+                          <p><strong>Final Vehicle Color Determination:</strong></p>
+                          <div className="best-color">
+                            <strong>Best Color Detection:</strong> {processingInfo.vehicle_color}
+                            {processingInfo.color_confidence && 
+                              <span className="color-confidence"> (Confidence: {(processingInfo.color_confidence * 100).toFixed(1)}%)</span>}
+                            {processingInfo.best_color_source && 
+                              <span className="source-indicator"> [Source: {processingInfo.best_color_source === 'region' ? 'Vehicle Region' : 'Full Image'}]</span>}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* After vehicle color detection section, add vehicle type detection section */}
                       <h4>Vehicle Type Detection:</h4>
                       <div className="vehicle-type-detection-section">
                         {/* First, show the full image used for vehicle type detection */}

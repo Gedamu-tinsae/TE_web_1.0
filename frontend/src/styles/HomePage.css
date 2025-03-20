@@ -1066,6 +1066,98 @@ body, html {
   font-weight: 500;
 }
 
+/* Vehicle Color Detection Section */
+.vehicle-color-detection-section {
+  margin: 15px 0;
+  padding: 12px;
+  background-color: rgba(0, 255, 255, 0.05);
+  border-radius: 5px;
+  border: 1px solid rgba(0, 255, 255, 0.3);
+}
+
+.full-image-color-section,
+.region-color-section {
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.color-detection-image {
+  max-width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+  margin: 8px 0;
+}
+
+.full-image-color-info, 
+.region-color-info {
+  padding: 8px 12px;
+  margin: 5px 0;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.full-image-color-info {
+  border-left: 3px solid #00ccff;
+}
+
+.region-color-info {
+  border-left: 3px solid #00ffcc;
+}
+
+.color-confidence {
+  margin-left: 5px;
+  color: #888;
+  font-size: 0.9em;
+}
+
+.best-color-section {
+  margin-top: 15px;
+  padding: 8px 12px;
+  background-color: rgba(0, 255, 255, 0.05);
+  border-radius: 4px;
+  border-left: 3px solid rgba(0, 255, 255, 0.5);
+}
+
+.best-color {
+  padding: 10px;
+  background-color: rgba(0, 255, 255, 0.1);
+  border-radius: 4px;
+  border-left: 3px solid rgba(0, 255, 255, 0.5);
+  font-weight: 500;
+}
+
+/* Mini color analysis for smaller sections */
+.color-analysis.mini h5 {
+  font-size: 0.9rem;
+  margin: 10px 0 5px 0;
+  color: #aaa;
+}
+
+.color-analysis.mini .color-bar-row {
+  margin-bottom: 3px;
+}
+
+.color-analysis.mini .color-swatch {
+  width: 14px;
+  height: 14px;
+}
+
+.color-analysis.mini .color-label {
+  width: 70px;
+  font-size: 0.85rem;
+}
+
+.color-analysis.mini .color-bar-container {
+  height: 8px;
+}
+
+.color-analysis.mini .color-percentage {
+  font-size: 0.8rem;
+  min-width: 40px;
+}
+
 
 
 
