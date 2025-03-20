@@ -6,173 +6,209 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Define color ranges in HSV
-# These ranges can be adjusted based on your specific needs
-COLOR_RANGES = {
-    "red": [(0, 70, 50), (10, 255, 255), (160, 70, 50), (180, 255, 255)],  # Red wraps around hue 0
-    "orange": [(11, 70, 50), (25, 255, 255)],
-    "yellow": [(26, 70, 50), (35, 255, 255)],
-    "green": [(36, 70, 50), (85, 255, 255)],
-    "blue": [(86, 70, 50), (130, 255, 255)],
-    "purple": [(131, 70, 50), (159, 255, 255)],
-    "white": [(0, 0, 200), (180, 30, 255)],
-    "black": [(0, 0, 0), (180, 255, 30)],
-    "gray": [(0, 0, 31), (180, 30, 199)],
-    "silver": [(0, 0, 150), (180, 30, 220)],
-    "brown": [(0, 20, 20), (30, 150, 150)]
-}
-
-def get_dominant_color(image, mask=None):
-    """
-    Get the dominant color from an image, optionally using a mask.
-    Returns the color name and percentage.
-    """
-    try:
-        # Copy image to avoid modifications
-        image_copy = image.copy()
-        
-        # If the image is already cropped to just the vehicle, use it directly
-        # Otherwise, create/use a mask to isolate the vehicle region
-        if mask is None:
-            # Convert to grayscale and apply Otsu's thresholding
-            gray = cv2.cvtColor(image_copy, cv2.COLOR_BGR2GRAY)
-            _, mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-            
-            # Try to focus on the vehicle region by finding contours
-            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            if contours:
-                # Use the largest contour as a mask
-                largest_contour = max(contours, key=cv2.contourArea)
-                mask = np.zeros_like(gray)
-                cv2.drawContours(mask, [largest_contour], 0, 255, -1)
-        
-        # Convert BGR to HSV
-        hsv = cv2.cvtColor(image_copy, cv2.COLOR_BGR2HSV)
-        
-        # Dictionary to store color percentages
-        color_percentages = {}
-        
-        total_pixels = np.count_nonzero(mask) if mask is not None else hsv.shape[0] * hsv.shape[1]
-        if total_pixels == 0:
-            logger.warning("No valid pixels found in the image for color detection.")
-            return {"color": "unknown", "confidence": 0.0, "color_percentages": {}}
-        
-        # Check each color range
-        for color_name, ranges in COLOR_RANGES.items():
-            # Some colors (like red) may have multiple ranges
-            if len(ranges) == 4:  # For red which wraps around
-                lower1, upper1, lower2, upper2 = ranges
-                mask1 = cv2.inRange(hsv, np.array(lower1), np.array(upper1))
-                mask2 = cv2.inRange(hsv, np.array(lower2), np.array(upper2))
-                color_mask = cv2.bitwise_or(mask1, mask2)
-            else:
-                lower, upper = ranges
-                color_mask = cv2.inRange(hsv, np.array(lower), np.array(upper))
-            
-            # Apply vehicle mask if available
-            if mask is not None:
-                color_mask = cv2.bitwise_and(color_mask, mask)
-            
-            # Calculate percentage of pixels that match this color
-            color_pixel_count = np.count_nonzero(color_mask)
-            percentage = (color_pixel_count / total_pixels) * 100
-            color_percentages[color_name] = percentage
-        
-        # Find the dominant color
-        dominant_color = max(color_percentages.items(), key=lambda x: x[1])
-        color_name, percentage = dominant_color
-        
-        logger.info(f"Detected dominant color: {color_name} ({percentage:.2f}%)")
-        
-        # Calculate confidence based on how dominant the color is
-        # If one color is much more dominant than others, we're more confident
-        sorted_percentages = sorted(color_percentages.values(), reverse=True)
-        if len(sorted_percentages) > 1:
-            confidence = min(1.0, (sorted_percentages[0] - sorted_percentages[1]) / 100)
-        else:
-            confidence = min(1.0, sorted_percentages[0] / 100)
-        
-        return {
-            "color": color_name,
-            "confidence": confidence,
-            "percentage": percentage,
-            "color_percentages": color_percentages
-        }
-    
-    except Exception as e:
-        logger.error(f"Error in color detection: {e}")
-        return {"color": "unknown", "confidence": 0.0, "color_percentages": {}}
-
 def detect_vehicle_color(image):
     """
-    Detect vehicle color from an image.
-    This function is a wrapper for get_dominant_color that handles preprocessing.
+    Detect the dominant color of a vehicle in an image.
+    Returns a dictionary with the color name, confidence, and color percentages.
     """
     try:
-        # Resize if image is too large for faster processing
-        if image.shape[0] > 800 or image.shape[1] > 800:
-            scale = 800 / max(image.shape[0], image.shape[1])
-            image = cv2.resize(image, None, fx=scale, fy=scale)
+        if image is None or image.size == 0:
+            return {"color": "Unknown", "confidence": 0.0, "color_percentages": {}}
         
-        # Get dominant color
-        result = get_dominant_color(image)
+        # Convert to HSV for better color discrimination
+        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         
-        # Color mapping to standard vehicle colors
-        # Combine similar colors for vehicle classifications
-        color_mapping = {
-            "red": "Red",
-            "orange": "Orange/Bronze",
-            "yellow": "Yellow/Gold",
-            "green": "Green",
-            "blue": "Blue",
-            "purple": "Purple",
-            "white": "White",
-            "black": "Black",
-            "gray": "Gray",
-            "silver": "Silver/Gray", 
-            "brown": "Brown"
+        # Define color ranges in HSV
+        color_ranges = {
+            # Improved white detection with broader value range and lower saturation threshold
+            "white": [(0, 0, 180), (180, 30, 255)],  # White has very low saturation and high value
+            "black": [(0, 0, 0), (180, 30, 60)],     # Black has low value
+            "gray": [(0, 0, 60), (180, 30, 180)],    # Gray has low saturation and medium value
+            "silver": [(0, 0, 140), (180, 30, 220)], # Silver is similar to white but less bright
+            "red1": [(0, 70, 50), (10, 255, 255)],   # Red wraps around the hue spectrum
+            "red2": [(170, 70, 50), (180, 255, 255)],
+            "orange": [(10, 70, 50), (25, 255, 255)],
+            "yellow": [(25, 70, 50), (35, 255, 255)],
+            "green": [(35, 70, 50), (85, 255, 255)],
+            "blue": [(85, 70, 50), (130, 255, 255)],
+            "purple": [(130, 70, 50), (170, 255, 255)],
+            "brown": [(10, 70, 20), (20, 200, 100)]  # Brown is a difficult color in HSV
         }
         
-        detected_color = result["color"]
-        standard_color = color_mapping.get(detected_color, detected_color.capitalize())
+        # Create masks for each color
+        color_counts = {}
+        color_masks = {}
+        
+        # Get total number of pixels
+        total_pixels = image.shape[0] * image.shape[1]
+        
+        # First pass: compute raw color percentages
+        for color, (lower, upper) in color_ranges.items():
+            lower = np.array(lower, dtype=np.uint8)
+            upper = np.array(upper, dtype=np.uint8)
+            
+            # Create mask
+            mask = cv2.inRange(hsv_image, lower, upper)
+            
+            # Count non-zero pixels (matching the color)
+            count = cv2.countNonZero(mask)
+            percentage = (count / total_pixels) * 100
+            
+            # Store results
+            color_counts[color] = percentage
+            color_masks[color] = mask
+        
+        # Handle the special case of red (combine red1 and red2)
+        if "red1" in color_counts and "red2" in color_counts:
+            color_counts["red"] = color_counts["red1"] + color_counts["red2"]
+            del color_counts["red1"]
+            del color_counts["red2"]
+            
+            # Also combine the masks
+            if "red1" in color_masks and "red2" in color_masks:
+                color_masks["red"] = cv2.bitwise_or(color_masks["red1"], color_masks["red2"])
+                del color_masks["red1"]
+                del color_masks["red2"]
+        
+        # Add heuristic adjustments for common issues:
+        
+        # 1. White vehicles with reflections might be detected as multiple colors
+        # If white percentage is significant, boost it
+        if "white" in color_counts and color_counts["white"] > 15:
+            color_counts["white"] *= 1.3  # Boost white detection
+        
+        # 2. Silver is often confused with white or gray
+        if "silver" in color_counts and "white" in color_counts:
+            if color_counts["silver"] > 10 and color_counts["white"] > 10:
+                # If both silver and white are detected strongly, 
+                # this is likely a white vehicle with shadows
+                if color_counts["silver"] > color_counts["white"]:
+                    color_counts["silver"] += color_counts["white"] * 0.5
+                else:
+                    color_counts["white"] += color_counts["silver"] * 0.5
+        
+        # 3. Black is often underdetected
+        if "black" in color_counts:
+            color_counts["black"] *= 1.2  # Boost black detection
+            
+        # 4. Handle special case with gray/silver/white vehicles
+        if (("gray" in color_counts and color_counts["gray"] > 15) or
+            ("silver" in color_counts and color_counts["silver"] > 15) or
+            ("white" in color_counts and color_counts["white"] > 15)):
+            
+            # Compute brightness and saturation statistics
+            avg_v = np.mean(hsv_image[:,:,2])
+            avg_s = np.mean(hsv_image[:,:,1])
+            
+            # Very high brightness and low saturation usually means white
+            if avg_v > 180 and avg_s < 40:
+                color_counts["white"] = max(color_counts.get("white", 0), 30)
+                
+            # Medium brightness and low saturation usually means silver
+            elif avg_v > 140 and avg_v <= 180 and avg_s < 40:
+                color_counts["silver"] = max(color_counts.get("silver", 0), 30)
+                
+            # Low brightness and low saturation usually means gray or black
+            elif avg_v <= 140 and avg_s < 40:
+                if avg_v < 80:
+                    color_counts["black"] = max(color_counts.get("black", 0), 30)
+                else:
+                    color_counts["gray"] = max(color_counts.get("gray", 0), 30)
+        
+        # Find the most dominant color
+        dominant_color = max(color_counts.items(), key=lambda x: x[1]) if color_counts else ("Unknown", 0)
+        
+        # Calculate confidence - normalize to 0-1 range
+        total_percentage = sum(color_counts.values())
+        confidence = min(dominant_color[1] / max(1, total_percentage) * 1.5, 1.0)
+        
+        # Calculate percentages for all colors
+        color_percentages = {color: round(percentage, 2) for color, percentage in color_counts.items()}
+        
+        logger.info(f"Detected color: {dominant_color[0]} with confidence {confidence:.2f}")
         
         return {
-            "color": standard_color,
-            "confidence": result["confidence"],
-            "raw_color": detected_color,
-            "color_percentages": result["color_percentages"]
+            "color": dominant_color[0],
+            "confidence": float(confidence),
+            "color_percentages": color_percentages
         }
-        
     except Exception as e:
-        logger.error(f"Error in vehicle color detection: {e}")
-        return {"color": "unknown", "confidence": 0.0}
+        logger.error(f"Error in color detection: {e}")
+        return {"color": "Error", "confidence": 0.0, "color_percentages": {}}
 
-def visualize_color_detection(image, color_info):
+def visualize_color_detection(image):
     """
-    Add color information to the image for visualization.
+    Visualize the color detection process by creating an image with the detected color
+    patches and information.
     """
     try:
-        # Create a copy of the image
-        viz_image = image.copy()
+        if image is None or image.size == 0:
+            return None
+            
+        # Get the color detection result
+        result = detect_vehicle_color(image)
         
-        # Get the color name and confidence
-        color_name = color_info.get("color", "unknown")
-        confidence = color_info.get("confidence", 0.0)
+        # Create a visualization image
+        h, w = image.shape[:2]
+        vis_height = h + 150  # Add space for color info
+        visualization = np.zeros((vis_height, w, 3), dtype=np.uint8)
         
-        # Create text for the visualization
-        text = f"Color: {color_name} ({confidence:.2f})"
+        # Copy the original image to the top
+        visualization[:h, :w] = image.copy()
         
-        # Position the text on the image (top-left corner)
-        position = (10, 30)
+        # Draw color percentages as a bar chart
+        y_offset = h + 20
+        bar_height = 30
+        text_offset = 5
         
-        # Add text to the image
-        cv2.putText(
-            viz_image, text, position,
-            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2, cv2.LINE_AA
-        )
+        # Get the top 5 colors
+        top_colors = sorted(result["color_percentages"].items(), key=lambda x: x[1], reverse=True)[:5]
         
-        return viz_image
+        for i, (color_name, percentage) in enumerate(top_colors):
+            # Map color name to BGR value
+            color_bgr = get_bgr_color(color_name)
+            
+            # Calculate bar width based on percentage (max 80% of width)
+            bar_width = int(w * 0.8 * percentage / 100)
+            if bar_width < 5:  # Ensure a minimum visible bar
+                bar_width = 5
+                
+            # Draw the bar
+            cv2.rectangle(visualization, 
+                          (10, y_offset + i * (bar_height + 5)), 
+                          (10 + bar_width, y_offset + i * (bar_height + 5) + bar_height), 
+                          color_bgr, -1)
+                          
+            # Draw the color name and percentage
+            cv2.putText(visualization, 
+                      f"{color_name}: {percentage:.1f}%", 
+                      (15, y_offset + i * (bar_height + 5) + text_offset + bar_height//2), 
+                      cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         
+        # Draw the dominant color info
+        cv2.putText(visualization, 
+                  f"Dominant color: {result['color']} (Confidence: {result['confidence']*100:.1f}%)", 
+                  (10, h + 10), 
+                  cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+                  
+        return visualization
     except Exception as e:
         logger.error(f"Error in color visualization: {e}")
-        return image
+        return None
+
+def get_bgr_color(color_name):
+    """Map color name to BGR value for visualization"""
+    color_map = {
+        "red": (0, 0, 255),
+        "green": (0, 255, 0),
+        "blue": (255, 0, 0),
+        "yellow": (0, 255, 255),
+        "orange": (0, 165, 255),
+        "purple": (255, 0, 255),
+        "white": (255, 255, 255),
+        "black": (0, 0, 0),
+        "gray": (128, 128, 128),
+        "silver": (192, 192, 192),
+        "brown": (42, 42, 165)
+    }
+    return color_map.get(color_name, (200, 200, 200))  # Default to light gray
