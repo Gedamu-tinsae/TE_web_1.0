@@ -284,16 +284,31 @@ def visualize_color_detection(image, vehicle_box=None):
 def get_bgr_color(color_name):
     """Map color name to BGR value for visualization"""
     color_map = {
-        "red": (0, 0, 255),
-        "green": (0, 255, 0),
-        "blue": (255, 0, 0),
-        "yellow": (0, 255, 255),
-        "orange": (0, 165, 255),
-        "purple": (255, 0, 255),
-        "white": (255, 255, 255),
-        "black": (0, 0, 0),
-        "gray": (128, 128, 128),
-        "silver": (192, 192, 192),
-        "brown": (42, 42, 165)
+        "red": (0, 0, 255),       # BGR for pure red
+        "green": (0, 255, 0),     # BGR for pure green
+        "blue": (255, 0, 0),      # BGR for pure blue
+        "yellow": (0, 255, 255),  # BGR for yellow (green + red)
+        "orange": (0, 165, 255),  # BGR for orange
+        "purple": (255, 0, 255),  # BGR for purple (magenta)
+        "white": (255, 255, 255), # BGR for white
+        "black": (0, 0, 0),       # BGR for black
+        "gray": (128, 128, 128),  # BGR for medium gray
+        "silver": (192, 192, 192),# BGR for silver (light gray)
+        "brown": (42, 42, 165)    # BGR for brown
     }
     return color_map.get(color_name, (200, 200, 200))  # Default to light gray
+
+def get_rgb_color(color_name):
+    """Map color name to RGB value for frontend visualization
+    Returns a hex string in #RRGGBB format
+    """
+    # Get BGR color first
+    bgr_color = get_bgr_color(color_name)
+    
+    # Convert BGR to RGB
+    rgb_color = (bgr_color[2], bgr_color[1], bgr_color[0])
+    
+    # Convert to hex string
+    hex_color = "#{:02x}{:02x}{:02x}".format(rgb_color[0], rgb_color[1], rgb_color[2])
+    
+    return hex_color

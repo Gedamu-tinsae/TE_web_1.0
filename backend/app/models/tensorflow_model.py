@@ -5,7 +5,7 @@ import os
 import logging
 import base64
 from .plate_correction import extract_text_from_plate, matches_pattern, looks_like_covid, generate_character_analysis_for_covid19
-from .color_detection import detect_vehicle_color, visualize_color_detection
+from .color_detection import detect_vehicle_color, visualize_color_detection, get_rgb_color
 from .vehicle_type import vehicle_detector
 from .vehicle_orientation import vehicle_orientation_detector
 from .vehicle_make import vehicle_make_detector  # Add import for vehicle make detection
@@ -440,10 +440,13 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             "color_confidences": color_confidences,  # Add color confidences to result
             "vehicle_color": best_color,  # Primary vehicle color 
             "color_confidence": best_color_confidence,
+            "color_hex": get_rgb_color(best_color),  # Add hex color code
             "full_image_color": full_image_color["color"],  # Add full image color
             "full_image_color_confidence": full_image_color["confidence"],  # Add full image color confidence
+            "full_image_color_hex": get_rgb_color(full_image_color["color"]),  # Add hex color
             "region_color": vehicle_colors[0] if vehicle_colors else "Unknown",  # Add region-specific color
             "region_color_confidence": color_confidences[0] if color_confidences else 0.0,  # Add region-specific confidence
+            "region_color_hex": get_rgb_color(vehicle_colors[0]) if vehicle_colors else "#cccccc",  # Add hex
             "color_percentages": full_image_color.get("color_percentages", {}),  # Full image color percentages
             "region_color_percentages": region_color_percentages if 'region_color_percentages' in locals() else {},  # Region color percentages
             "best_color_source": "region" if (vehicle_colors and color_confidences[0] > full_image_color["confidence"]) else "full_image",

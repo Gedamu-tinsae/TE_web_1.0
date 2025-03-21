@@ -7,7 +7,7 @@ import json
 import base64
 import re
 from .plate_correction import extract_text_from_plate, extract_text_from_region, get_reader, matches_pattern, looks_like_covid, generate_character_analysis_for_covid19
-from .color_detection import detect_vehicle_color, visualize_color_detection
+from .color_detection import detect_vehicle_color, visualize_color_detection, get_rgb_color
 from .vehicle_type import vehicle_detector
 from .vehicle_orientation import vehicle_orientation_detector
 from .vehicle_make import vehicle_make_detector  # Add import for vehicle make detection
@@ -613,10 +613,13 @@ def process_image(file_path, confidence_threshold=0.7):
                 "text_candidates": text_candidates,  # Already a direct array from our extraction function
                 "vehicle_color": color_info["color"],  # Best color (either from region or full image)
                 "color_confidence": color_info["confidence"],
+                "color_hex": get_rgb_color(color_info["color"]),  # Add hex color code
                 "full_image_color": full_image_color["color"],  # Full image color
                 "full_image_color_confidence": full_image_color["confidence"],
+                "full_image_color_hex": get_rgb_color(full_image_color["color"]),  # Add hex color
                 "region_color": region_color,  # Region-specific color
                 "region_color_confidence": region_color_confidence,
+                "region_color_hex": get_rgb_color(region_color),  # Add hex color
                 "color_percentages": full_image_color.get("color_percentages", {}),  # Full image color percentages
                 "region_color_percentages": region_color_percentages,  # Region color percentages
                 "best_color_source": best_color_source,  # Which source gave the best color detection
