@@ -101,5 +101,59 @@ class VehicleTypeDetector:
                 "alternatives": []
             }
 
+    def get_vehicle_boxes(self, image, conf_threshold=0.25):
+        """
+        Detect vehicles in the image and return their bounding boxes
+        
+        Args:
+            image: Image to detect vehicles in
+            conf_threshold: Confidence threshold for detection
+            
+        Returns:
+            List of tuples (x_min, y_min, x_max, y_max) for each detected vehicle
+        """
+        if self.model is None:
+            return []
+
+        try:
+            # Get model predictions
+            results = self.model.predict(source=image, conf=conf_threshold)
+            
+            if not results or len(results) == 0:
+                return []
+
+            # Get boxes
+            boxes = results[0].boxes
+            if len(boxes) == 0:
+                return []
+
+            vehicle_boxes = []
+            h, w = image.shape[:2]
+            
+            # Process all detections
+            for box in boxes:
+                cls_id = int(box.cls[0].item())
+                cls_name = self.model.names[cls_id]
+                conf = float(box.conf[0].item())
+
+                # Skip non-vehicle classes
+                if cls_name not in ["car", "truck", "bus", "motorcycle", "bicycle"]:
+                    continue
+
+                # Get bounding box coordinates
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
+                
+                # Convert to integers
+                x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+                
+                # Add to vehicle boxes
+                vehicle_boxes.append((x1, y1, x2, y2))
+
+            return vehicle_boxes
+
+        except Exception as e:
+            logger.error(f"Error getting vehicle boxes: {e}")
+            return []
+
 # Create singleton instance
 vehicle_detector = VehicleTypeDetector()

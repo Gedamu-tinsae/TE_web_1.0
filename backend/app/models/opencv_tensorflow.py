@@ -37,9 +37,41 @@ def process_image(file_path, confidence_threshold=0.7):
             raise ValueError("Failed to load image.")
         logger.info("Image loaded successfully")
 
-        # Detect vehicle color from the full image
+        # Use vehicle detector to get vehicle boxes
+        vehicle_boxes = vehicle_detector.get_vehicle_boxes(image, conf_threshold=0.3)
+        
+        # Detect vehicle color - first from the full image as a fallback
         full_image_color = detect_vehicle_color(image)
         logger.info(f"Detected vehicle color from full image: {full_image_color['color']}")
+        
+        # If we have vehicle boxes, detect color from the primary vehicle box
+        vehicle_box = None
+        if vehicle_boxes:
+            # Use the largest vehicle box (likely the main subject)
+            largest_area = 0
+            for box in vehicle_boxes:
+                x1, y1, x2, y2 = box
+                area = (x2 - x1) * (y2 - y1)
+                if area > largest_area:
+                    largest_area = area
+                    vehicle_box = box
+            
+            if vehicle_box:
+                # Detect color using the vehicle box
+                vehicle_region_color = detect_vehicle_color(image, vehicle_box)
+                logger.info(f"Detected vehicle color from vehicle region: {vehicle_region_color['color']}")
+                
+                # Use the vehicle region color if confidence is higher
+                if vehicle_region_color["confidence"] > full_image_color["confidence"]:
+                    color_info = vehicle_region_color
+                    logger.info(f"Using vehicle region color: {color_info['color']}")
+                else:
+                    color_info = full_image_color
+                    logger.info(f"Using full image color: {color_info['color']}")
+            else:
+                color_info = full_image_color
+        else:
+            color_info = full_image_color
 
         # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -615,7 +647,9 @@ def process_image(file_path, confidence_threshold=0.7):
                     "full_image_color": full_image_color_rel,
                     "vehicle_make": vehicle_make_rel if 'vehicle_make_rel' in locals() else None,
                     "full_image_make": full_image_make_rel
-                }
+                },
+                "vehicle_boxes": vehicle_boxes,
+                "primary_vehicle_box": vehicle_box
             }
 
             return result

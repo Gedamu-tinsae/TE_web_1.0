@@ -45,6 +45,47 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             raise ValueError("Failed to load image.")
         logger.info("Image loaded successfully")
 
+        # Use vehicle detector to get vehicle boxes
+        vehicle_boxes = vehicle_detector.get_vehicle_boxes(original_image, conf_threshold=0.3)
+        
+        # Detect vehicle color from the full image first (as a fallback)
+        full_image_color = detect_vehicle_color(original_image)
+        logger.info(f"Detected vehicle color from full image: {full_image_color['color']}")
+        
+        # If we have vehicle boxes, detect color from the primary vehicle box
+        vehicle_box = None
+        region_color_info = {"color": "Unknown", "confidence": 0.0, "color_percentages": {}}
+        
+        if vehicle_boxes:
+            # Use the largest vehicle box (likely the main subject)
+            largest_area = 0
+            for box in vehicle_boxes:
+                x1, y1, x2, y2 = box
+                area = (x2 - x1) * (y2 - y1)
+                if area > largest_area:
+                    largest_area = area
+                    vehicle_box = box
+            
+            if vehicle_box:
+                # Detect color using the vehicle box
+                region_color_info = detect_vehicle_color(original_image, vehicle_box)
+                logger.info(f"Detected vehicle color from vehicle region: {region_color_info['color']}")
+                
+                # Store region color info for the result
+                region_color = region_color_info["color"]
+                region_color_confidence = region_color_info["confidence"]
+                region_color_percentages = region_color_info.get("color_percentages", {})
+            
+        # Choose best color based on confidence
+        if region_color_info["confidence"] > full_image_color["confidence"]:
+            color_info = region_color_info
+            best_color_source = "region"
+            logger.info(f"Using vehicle region color: {color_info['color']}")
+        else:
+            color_info = full_image_color
+            best_color_source = "full_image"
+            logger.info(f"Using full image color: {color_info['color']}")
+
         # Define intermediate directory here at the beginning of the function
         base_name = os.path.basename(file_path)
         intermediate_dir = os.path.join("results", "tensorflow", "intermediate", "images")
@@ -72,10 +113,6 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
         vehicle_colors = []  # New array to store vehicle colors
         color_confidences = []  # New array to store color confidences
         vehicle_regions = []  # New array to store vehicle regions for visualization
-        
-        # Detect vehicle color from the full image first (as a fallback)
-        full_image_color = detect_vehicle_color(original_image)
-        logger.info(f"Detected vehicle color from full image: {full_image_color['color']}")
         
         # Save full image for color detection visualization
         full_image_color_path = os.path.join(intermediate_dir, f"7_full_image_color_{base_name}")
@@ -436,7 +473,9 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             "full_image_make_confidence": full_image_make_info["confidence"],
             "region_make": vehicle_make_info["make"] if vehicle_make_info["confidence"] > full_image_make_info["confidence"] else "Unknown",
             "region_make_confidence": vehicle_make_info["confidence"] if vehicle_make_info["confidence"] > full_image_make_info["confidence"] else 0.0,
-            "best_make_source": "region" if vehicle_make_info["confidence"] > full_image_make_info["confidence"] else "full_image"
+            "best_make_source": "region" if vehicle_make_info["confidence"] > full_image_make_info["confidence"] else "full_image",
+            "vehicle_boxes": vehicle_boxes,
+            "primary_vehicle_box": vehicle_box
         }
 
         return result
