@@ -48,6 +48,9 @@
 │   │   ├── opencv_tensorflow.py
 │   │   ├── tensorflow_model.py  
 │   │   ├── plate_correction.py
+│   │   ├── vehicle_orientation.py
+│   │   ├── vehicle_make.py
+│   │   ├── color_detection.py
 │   │   ├── saved_model.pb
 │   │   ├── gf.py               # Guided Filter implementation
 │   │   ├── haze_removal.py     # Haze/Fog Removal implementation
@@ -83,6 +86,7 @@
 ├── VMI/                        # Vehicle Make and Model Identification
 │   ├── model_files_explanation.md # Explanation of model files and formats
 │   └── predict.py              # Script for prediction with trained model
+|   |-- train_model.py
 ├── VOI/                        # Vehicle Orientation Identification
 │   ├── predict_orientation.py
 │   └── cmd.md

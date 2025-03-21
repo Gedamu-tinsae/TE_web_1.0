@@ -5,11 +5,12 @@ import imutils
 import logging
 import json
 import base64
-import re  # Add missing import for regular expressions
+import re
 from .plate_correction import extract_text_from_plate, extract_text_from_region, get_reader, matches_pattern, looks_like_covid, generate_character_analysis_for_covid19
 from .color_detection import detect_vehicle_color, visualize_color_detection
 from .vehicle_type import vehicle_detector
-from .vehicle_orientation import vehicle_orientation_detector  # Add this import
+from .vehicle_orientation import vehicle_orientation_detector
+from .vehicle_make import vehicle_make_detector  # Add import for vehicle make detection
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -302,6 +303,18 @@ def process_image(file_path, confidence_threshold=0.7):
             # Determine which detection to use based on confidence
             vehicle_type_info = region_type_info if region_type_info["confidence"] > full_image_type_info["confidence"] else full_image_type_info
 
+            # First detect vehicle make from full image
+            full_image_make_info = vehicle_make_detector.detect(image)
+            logger.info(f"Detected vehicle make from full image: {full_image_make_info['make']}")
+            
+            # Save full image for make detection visualization
+            full_image_make_path = os.path.join(intermediate_dir, f"full_image_make_{os.path.basename(file_path)}")
+            cv2.imwrite(full_image_make_path, image.copy())
+            full_image_make_rel = f"/results/opencv/intermediate/images/full_image_make_{os.path.basename(file_path)}"
+            
+            # Initialize with full image make detection
+            vehicle_make_info = full_image_make_info
+
             # Draw annotations with vehicle type information
             font = cv2.FONT_HERSHEY_SIMPLEX
             annotated_image = cv2.putText(image.copy(), text=license_plate, 
@@ -357,6 +370,36 @@ def process_image(file_path, confidence_threshold=0.7):
                 font,
                 0.8,
                 (255, 0, 255),  # Magenta color
+                2
+            )
+
+            # Check if the vehicle region is valid
+            if vehicle_region.size > 0 and vehicle_region.shape[0] > 10 and vehicle_region.shape[1] > 10:
+                # ...existing code...
+                
+                # Detect vehicle make from the extracted region
+                region_make_info = vehicle_make_detector.detect(vehicle_region)
+                logger.info(f"Detected vehicle make from region: {region_make_info['make']}")
+                
+                # Use the region detection if confidence is higher
+                if region_make_info["confidence"] > vehicle_make_info["confidence"]:
+                    vehicle_make_info = region_make_info
+                    logger.info(f"Using vehicle region make: {vehicle_make_info['make']}")
+                
+                # Add vehicle make path to result paths
+                vehicle_make_path = os.path.join(intermediate_dir, f"vehicle_make_{os.path.basename(file_path)}")
+                cv2.imwrite(vehicle_make_path, vehicle_region)
+                vehicle_make_rel = f"/results/opencv/intermediate/images/vehicle_make_{os.path.basename(file_path)}"
+            
+            # Add make information to the annotated image
+            make_text = f"Make: {vehicle_make_info['make']}"
+            annotated_image = cv2.putText(
+                annotated_image,
+                make_text,
+                (location[0][0][0], location[1][0][1]+180),  # Position below orientation text
+                font,
+                0.8,
+                (102, 255, 153),  # Light green color
                 2
             )
             
@@ -558,6 +601,21 @@ def process_image(file_path, confidence_threshold=0.7):
                 "vehicle_orientation": vehicle_orientation_info["orientation"],
                 "orientation_confidence": vehicle_orientation_info["confidence"],
                 "is_front_facing": vehicle_orientation_info["is_front"],
+                "vehicle_make": vehicle_make_info["make"],
+                "make_confidence": vehicle_make_info["confidence"],
+                "make_alternatives": vehicle_make_info["alternatives"],
+                # Add both detection results separately
+                "full_image_make": full_image_make_info["make"],
+                "full_image_make_confidence": full_image_make_info["confidence"],
+                "region_make": region_make_info["make"] if 'region_make_info' in locals() else "Unknown",
+                "region_make_confidence": region_make_info["confidence"] if 'region_make_info' in locals() else 0.0,
+                "best_make_source": "region" if ('region_make_info' in locals() and region_make_info["confidence"] > full_image_make_info["confidence"]) else "full_image",
+                "intermediate_steps": {
+                    "vehicle_region": vehicle_region_rel,
+                    "full_image_color": full_image_color_rel,
+                    "vehicle_make": vehicle_make_rel if 'vehicle_make_rel' in locals() else None,
+                    "full_image_make": full_image_make_rel
+                }
             }
 
             return result
@@ -585,6 +643,16 @@ def process_video(file_path, confidence_threshold=0.7):
         # Use a dynamic threshold based on confidence_threshold
         min_contour_area = 50 if confidence_threshold < 0.7 else 100
 
+        # Add vehicle make tracking
+        all_vehicle_makes = []
+        
+        # Initialize vehicle make info
+        vehicle_make_info = {
+            "make": "Unknown",
+            "confidence": 0.0,
+            "alternatives": []
+        }
+
         while cap.isOpened() and frame_number < max_frames:  # Fixed: Added missing dot between 'cap' and 'isOpened()'
             ret, frame = cap.read()
             if not ret or frame is None:
@@ -597,6 +665,14 @@ def process_video(file_path, confidence_threshold=0.7):
             color_info = detect_vehicle_color(frame)
             all_vehicle_colors.append(color_info["color"])
             logger.info(f"Frame {frame_number}: Detected vehicle color: {color_info['color']}")
+
+            # Detect vehicle make from the full frame
+            make_info = vehicle_make_detector.detect(frame)
+            if make_info["confidence"] > vehicle_make_info["confidence"]:
+                vehicle_make_info = make_info
+            
+            all_vehicle_makes.append(make_info["make"])
+            logger.info(f"Frame {frame_number}: Detected vehicle make: {make_info['make']}")
 
             # Process each frame (similar to process_image function)
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -651,6 +727,20 @@ def process_video(file_path, confidence_threshold=0.7):
                     cv2.LINE_AA
                 )
                 
+                # Add make information to the frame
+                if vehicle_make_info["make"] != "Unknown":
+                    make_text = f"Make: {vehicle_make_info['make']}"
+                    annotated_frame = cv2.putText(
+                        annotated_frame, 
+                        make_text,
+                        (location[0][0][0], location[1][0][1]+120), # Position below color text
+                        font, 
+                        0.8, 
+                        (102, 255, 153), # Light green color
+                        2, 
+                        cv2.LINE_AA
+                    )
+
                 results.append(annotated_frame)
             else:
                 # Even if we can't find the license plate, we still want to process the frame
@@ -666,7 +756,24 @@ def process_video(file_path, confidence_threshold=0.7):
                     2, 
                     cv2.LINE_AA
                 )
-                results.append(annotated_frame)
+                # Even if we can't find the license plate, still show the make detection
+                if vehicle_make_info["make"] != "Unknown":
+                    make_text = f"Make: {vehicle_make_info['make']}"
+                    annotated_frame = cv2.putText(
+                        frame.copy() if 'annotated_frame' not in locals() else annotated_frame, 
+                        make_text,
+                        (10, 60), # Position below color text at top-left if no plate is found
+                        font, 
+                        0.8, 
+                        (102, 255, 153), # Light green color
+                        2, 
+                        cv2.LINE_AA
+                    )
+                    results.append(annotated_frame)
+                else:
+                    # Just add the frame with color info if we already added that
+                    if 'annotated_frame' in locals():
+                        results.append(annotated_frame)
 
         cap.release()
         if results:
@@ -692,13 +799,25 @@ def process_video(file_path, confidence_threshold=0.7):
                 most_common_color = "Unknown"
                 color_frequency = 0.0
 
+            # Determine most common vehicle make
+            if all_vehicle_makes:
+                make_counter = Counter(all_vehicle_makes)
+                most_common_make = make_counter.most_common(1)[0][0]
+                make_frequency = make_counter.most_common(1)[0][1] / len(all_vehicle_makes)
+            else:
+                most_common_make = "Unknown"
+                make_frequency = 0.0
+
             result = {
                 "status": "success",
                 "result_url": f"/results/opencv/videos/{os.path.basename(result_video_path)}",
                 "filename": file_path,
                 "vehicle_color": most_common_color,  # Add most common vehicle color
                 "color_confidence": color_frequency,  # Add confidence (frequency) of color detection
-                "all_colors": dict(color_counter.most_common(3))  # Include top 3 detected colors
+                "all_colors": dict(color_counter.most_common(3)),  # Include top 3 detected colors
+                "vehicle_make": most_common_make,  # Add most common vehicle make
+                "make_confidence": make_frequency,  # Add confidence (frequency) of make detection
+                "all_makes": dict(make_counter.most_common(3)) if 'make_counter' in locals() else {}  # Include top 3 detected makes
             }
 
             return result

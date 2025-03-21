@@ -1158,6 +1158,69 @@ body, html {
   min-width: 40px;
 }
 
+/* Vehicle Make Info styling */
+.vehicle-make-info {
+  margin: 15px 0;
+  padding: 12px;
+  background-color: rgba(102, 255, 153, 0.1);
+  border-left: 3px solid #66ff99;
+  border-radius: 4px;
+}
+
+.make-confidence {
+  margin-left: 5px;
+  color: #888;
+  font-size: 0.9em;
+}
+
+/* Vehicle Make Detection Section */
+.vehicle-make-detection-section {
+  margin: 15px 0;
+  padding: 12px;
+  background-color: rgba(102, 255, 153, 0.05);
+  border-radius: 5px;
+  border: 1px solid rgba(102, 255, 153, 0.3);
+}
+
+.full-image-make-section,
+.region-make-section {
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.make-detection-image {
+  max-width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+  margin: 8px 0;
+}
+
+.vehicle-make-detection-section .full-image-detection {
+  padding: 8px 12px;
+  margin: 5px 0;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  border-left: 3px solid #66ff99;
+}
+
+.vehicle-make-detection-section .region-detection {
+  padding: 8px 12px;
+  margin: 5px 0;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  border-left: 3px solid #33cc66;
+}
+
+.vehicle-make-detection-section .best-detection {
+  padding: 10px;
+  background-color: rgba(102, 255, 153, 0.1);
+  border-radius: 4px;
+  border-left: 3px solid rgba(102, 255, 153, 0.5);
+  font-weight: 500;
+}
+
 
 
 

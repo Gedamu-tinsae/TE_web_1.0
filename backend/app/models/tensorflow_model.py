@@ -7,7 +7,8 @@ import base64
 from .plate_correction import extract_text_from_plate, matches_pattern, looks_like_covid, generate_character_analysis_for_covid19
 from .color_detection import detect_vehicle_color, visualize_color_detection
 from .vehicle_type import vehicle_detector
-from .vehicle_orientation import vehicle_orientation_detector  # Add this import
+from .vehicle_orientation import vehicle_orientation_detector
+from .vehicle_make import vehicle_make_detector  # Add import for vehicle make detection
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -88,6 +89,13 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             "alternatives": []
         }
         
+        # Initialize vehicle make detection with default values
+        vehicle_make_info = {
+            "make": "Unknown",
+            "confidence": 0.0,
+            "alternatives": []
+        }
+        
         # Detect vehicle type from full image first
         initial_type_info = vehicle_detector.detect(image)
         # Store the full image detection result separately
@@ -100,6 +108,19 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
         
         if initial_type_info["confidence"] > 0.3:  # Set a minimum threshold
             vehicle_type_info = initial_type_info
+
+        # Detect vehicle make from full image first
+        initial_make_info = vehicle_make_detector.detect(image)
+        # Store the full image detection result separately
+        full_image_make_info = initial_make_info
+        
+        # Also save the original image used for vehicle make detection
+        full_image_make_path = os.path.join(intermediate_dir, f"8_full_image_make_{base_name}")
+        cv2.imwrite(full_image_make_path, image.copy())
+        full_image_make_path_rel = f"/results/tensorflow/intermediate/images/8_full_image_make_{base_name}"
+        
+        if initial_make_info["confidence"] > 0.3:  # Set a minimum threshold
+            vehicle_make_info = initial_make_info
 
         for i in range(num_detections):
             # Use the confidence_threshold parameter instead of hardcoding 0.7
@@ -268,6 +289,23 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                             (255, 0, 255),  # Magenta color
                             2)
 
+                # Update vehicle make if we get a better detection from the region
+                if vehicle_region.size > 0:
+                    region_make_info = vehicle_make_detector.detect(vehicle_region)
+                    # Store this separately instead of conditionally overwriting
+                    if region_make_info["confidence"] > vehicle_make_info["confidence"]:
+                        vehicle_make_info = region_make_info
+
+                # Add vehicle make below vehicle type
+                if vehicle_make_info["make"] != "Unknown":
+                    make_text = f"Make: {vehicle_make_info['make']}"
+                    cv2.putText(image, make_text,
+                            (x_min, y_min - 100),  # Position above orientation text
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.7,
+                            (102, 255, 153),  # Light green color
+                            2)
+
         # If no plates were detected (empty lists)
         if not localized_images and not extracted_texts:
             logger.info("No license plates detected - attempting full image OCR")
@@ -332,6 +370,14 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             best_color = vehicle_colors[0]
             best_color_confidence = color_confidences[0]
 
+        # Create a special vehicle make region image for visualization
+        if 'vehicle_region' in locals() and vehicle_region.size > 0:
+            vehicle_make_path = os.path.join(intermediate_dir, f"9_vehicle_make_{base_name}")
+            cv2.imwrite(vehicle_make_path, vehicle_region)
+            vehicle_make_path_rel = f"/results/tensorflow/intermediate/images/9_vehicle_make_{base_name}"
+        else:
+            vehicle_make_path_rel = None
+
         result = {
             "status": "success",
             "filename": file_path,
@@ -343,7 +389,9 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
                 "vehicle_regions": vehicle_region_paths,
                 "vehicle_type_region": vehicle_type_path_rel if 'vehicle_type_path_rel' in locals() else None,
                 "full_image_type": full_image_type_path_rel,  # Add full image path for type
-                "full_image_color": full_image_color_path_rel  # Add full image path for color
+                "full_image_color": full_image_color_path_rel,  # Add full image path for color
+                "full_image_make": full_image_make_path_rel,  # Add full image path for make
+                "vehicle_make_region": vehicle_make_path_rel if 'vehicle_make_path_rel' in locals() else None,
             },
             "intermediate_images": {
                 # Ensure array is contiguous before encoding
@@ -379,7 +427,16 @@ def process_image_with_model(file_path, confidence_threshold=0.7):
             "orientation_confidence": vehicle_orientation_info["confidence"],
             "is_front_facing": vehicle_orientation_info["is_front"],
             "plate_detection_status": "full_image" if not localized_images else "plate_detected",
-            "best_type_source": "region" if vehicle_type_info["confidence"] > full_image_type_info["confidence"] else "full_image"
+            "best_type_source": "region" if vehicle_type_info["confidence"] > full_image_type_info["confidence"] else "full_image",
+            "vehicle_make": vehicle_make_info["make"],
+            "make_confidence": vehicle_make_info["confidence"],
+            "make_alternatives": vehicle_make_info["alternatives"],
+            # Add both detection results separately
+            "full_image_make": full_image_make_info["make"],
+            "full_image_make_confidence": full_image_make_info["confidence"],
+            "region_make": vehicle_make_info["make"] if vehicle_make_info["confidence"] > full_image_make_info["confidence"] else "Unknown",
+            "region_make_confidence": vehicle_make_info["confidence"] if vehicle_make_info["confidence"] > full_image_make_info["confidence"] else 0.0,
+            "best_make_source": "region" if vehicle_make_info["confidence"] > full_image_make_info["confidence"] else "full_image"
         }
 
         return result
@@ -425,6 +482,13 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
             "orientation": "Unknown",
             "confidence": 0.0,
             "is_front": None
+        }
+
+        # Initialize vehicle make info with default values
+        vehicle_make_info = {
+            "make": "Unknown",
+            "confidence": 0.0,
+            "alternatives": []
         }
 
         while cap.isOpened():
@@ -481,6 +545,12 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
             initial_type_info = vehicle_detector.detect(frame)
             if initial_type_info["confidence"] > vehicle_type_info["confidence"]:
                 vehicle_type_info = initial_type_info
+
+            # Update vehicle make detection from full frame first
+            initial_make_info = vehicle_make_detector.detect(frame)
+            if initial_make_info["confidence"] > vehicle_make_info["confidence"]:
+                vehicle_make_info = initial_make_info
+                logger.info(f"Frame {frame_number}: Updated vehicle make: {vehicle_make_info['make']}")
 
             for i in range(num_detections):
                 # Use the confidence_threshold parameter instead of hardcoding 0.7
@@ -579,6 +649,23 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
                             vehicle_type_info = region_type_info
                             logger.info(f"Frame {frame_number}: Updated vehicle type: {vehicle_type_info['vehicle_type']}")
 
+                    # Add make information
+                    if vehicle_make_info["make"] != "Unknown":
+                        make_text = f"Make: {vehicle_make_info['make']}"
+                        cv2.putText(frame, make_text,
+                                  (x_min, y_min - 100),  # Position above orientation text
+                                  cv2.FONT_HERSHEY_SIMPLEX,
+                                  0.7,
+                                  (102, 255, 153),  # Light green color
+                                  2)
+
+                    # Update vehicle make if we get a better detection from vehicle region
+                    if vehicle_region.size > 0:
+                        region_make_info = vehicle_make_detector.detect(vehicle_region)
+                        if region_make_info["confidence"] > vehicle_make_info["confidence"]:
+                            vehicle_make_info = region_make_info
+                            logger.info(f"Frame {frame_number}: Updated vehicle make: {vehicle_make_info['make']}")
+
             # If no plates were detected, try to detect orientation from the full frame
             if not frame_plates:
                 try:
@@ -656,7 +743,10 @@ def process_video_with_model(file_path, low_visibility=False, confidence_thresho
                 "vehicle_type_alternatives": vehicle_type_info["alternatives"],
                 "vehicle_orientation": vehicle_orientation_info["orientation"],
                 "orientation_confidence": vehicle_orientation_info["confidence"],
-                "is_front_facing": vehicle_orientation_info["is_front"]
+                "is_front_facing": vehicle_orientation_info["is_front"],
+                "vehicle_make": vehicle_make_info["make"],
+                "make_confidence": vehicle_make_info["confidence"],
+                "make_alternatives": vehicle_make_info["alternatives"]
             }
 
             return result

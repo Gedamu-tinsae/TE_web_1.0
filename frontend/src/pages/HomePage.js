@@ -668,6 +668,69 @@ const HomePage = () => {
                           </div>
                         </div>
                       </div>
+                      
+                      {/* After the vehicle type detection section, add vehicle make detection section */}
+                      <h4>Vehicle Make Detection:</h4>
+                      <div className="vehicle-make-detection-section">
+                        <div className="full-image-make-section">
+                          <p><strong>Full Image Used for Make Detection:</strong></p>
+                          {processingInfo && processingInfo.intermediate_steps.full_image_make ? (
+                            <img 
+                              src={`http://172.20.10.10:8000${processingInfo.intermediate_steps.full_image_make}`}
+                              alt="Full Image Make Detection"
+                              className="make-detection-image"
+                              onError={(e) => {
+                                console.log('Error loading full image make detection');
+                                e.target.style.display = 'none';
+                                e.target.parentNode.innerHTML += '<div class="error-message">Full image make detection image failed to load.</div>';
+                              }}
+                            />
+                          ) : (
+                            <div className="missing-image">Full image make detection image not available.</div>
+                          )}
+                          <div className="full-image-detection">
+                            <strong>Full Image Detection:</strong> {processingInfo.full_image_make || 'Unknown'}
+                            {processingInfo.full_image_make_confidence && 
+                              <span className="make-confidence"> (Confidence: {(processingInfo.full_image_make_confidence * 100).toFixed(1)}%)</span>}
+                          </div>
+                        </div>
+                        
+                        {/* Then, show the vehicle region used for make detection if available */}
+                        <div className="region-make-section">
+                          <p><strong>Vehicle Region Used for Make Detection:</strong></p>
+                          {processingInfo && processingInfo.intermediate_steps.vehicle_make_region ? (
+                            <img 
+                              src={`http://172.20.10.10:8000${processingInfo.intermediate_steps.vehicle_make_region}`}
+                              alt="Vehicle Make Detection Region"
+                              className="make-detection-image"
+                              onError={(e) => {
+                                console.log('Error loading vehicle make region image');
+                                e.target.style.display = 'none';
+                                e.target.parentNode.innerHTML += '<div class="error-message">Vehicle region make detection image failed to load.</div>';
+                              }}
+                            />
+                          ) : (
+                            <div className="missing-image">Vehicle region make detection image not available.</div>
+                          )}
+                          <div className="region-detection">
+                            <strong>Region Detection:</strong> {processingInfo.region_make || 'Unknown'}
+                            {processingInfo.region_make_confidence && 
+                              <span className="make-confidence"> (Confidence: {(processingInfo.region_make_confidence * 100).toFixed(1)}%)</span>}
+                          </div>
+                        </div>
+                        
+                        {/* Finally, show the final vehicle make determination */}
+                        <div className="best-detection-section">
+                          <p><strong>Final Vehicle Make Determination:</strong></p>
+                          <div className="best-detection">
+                            <strong>Best Detection:</strong> {processingInfo.vehicle_make}
+                            {processingInfo.make_confidence && 
+                              <span className="make-confidence"> (Confidence: {(processingInfo.make_confidence * 100).toFixed(1)}%)</span>}
+                            {processingInfo.best_make_source && 
+                              <span className="source-indicator"> [Source: {processingInfo.best_make_source === 'region' ? 'Vehicle Region' : 'Full Image'}]</span>}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -902,6 +965,32 @@ const HomePage = () => {
                             <span className="orientation-confidence"> 
                               (Confidence: {(processingInfo.orientation_confidence * 100).toFixed(1)}%)
                             </span>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Add Vehicle Make Information after Vehicle Type */}
+                      {processingInfo.vehicle_make && (
+                        <div className="vehicle-make-info">
+                          <strong>Vehicle Make:</strong> {processingInfo.vehicle_make}
+                          {processingInfo.make_confidence && (
+                            <span className="make-confidence"> 
+                              (Confidence: {(processingInfo.make_confidence * 100).toFixed(1)}%)
+                            </span>
+                          )}
+                          
+                          {/* Show alternative detections if available */}
+                          {processingInfo.make_alternatives && 
+                           processingInfo.make_alternatives.length > 0 && (
+                            <div className="vehicle-alternatives">
+                              <p><strong>Alternative Detections:</strong></p>
+                              {processingInfo.make_alternatives.map((alt, index) => (
+                                <div key={index} className="vehicle-alternative-item">
+                                  <span>{alt.make}</span>
+                                  <span>{(alt.confidence * 100).toFixed(1)}%</span>
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
                       )}
