@@ -54,17 +54,24 @@
 │   │   ├── vehicle_type.py     # Vehicle Type Detection using YOLOv8
 │   │   ├── VTD/                # Vehicle and Traffic Detection
 │   │   │   └── yolov8n.pt      # YOLOv8 pre-trained model
-│   │   └── VOI/                # Vehicle Orientation Identification
-│   │       ├── models/
-│   │       │   └── orientation_model_converted_saved_model/
-│   │       │       ├── variables/
-│   │       │       ├── saved_model.pb
-│   │       │       └── ...
-│   │       ├── orientation_model.h5
-│   │       ├── orientation_model.keras
-│   │       ├── orientation_model_converted_architecture.json
-│   │       ├── load-about.md
-│   │       └── predict_orientation.py
+│   │   ├── VOI/                # Vehicle Orientation Identification
+│   │   │   ├── models/
+│   │   │   │   └── orientation_model_converted_saved_model/
+│   │   │   │       ├── variables/
+│   │   │   │       ├── saved_model.pb
+│   │   │   │       └── ...
+│   │   │   ├── orientation_model.h5
+│   │   │   ├── orientation_model.keras
+│   │   │   ├── orientation_model_converted_architecture.json
+│   │   │   ├── load-about.md
+│   │   │   └── predict_orientation.py
+│   │   └── VMI/                # Vehicle Make Identification
+│   │       ├── models/         # Directory for saved models
+│   │       │   ├── make_classes.json         # Class mapping for make classification
+│   │       │   ├── make_mobilenet_weights.h5 # Make classification model weights
+│   │       │   ├── final_make_mobilenet_weights.h5 # Final make classification weights
+│   │       │   └── make_mobilenet_summary.txt    # Model architecture summary
+│   │       └── cmd-vmi.md      # Command line instructions for VMI
 │   ├── main.py
 │   └── ...
 ├── results/
@@ -74,12 +81,6 @@
 ├── venv/
 │   └── ...
 ├── VMI/                        # Vehicle Make and Model Identification
-│   ├── VMI_models/             # Directory for saved models
-│   │   ├── make_classes.json         # Class mapping for make classification
-│   │   ├── make_mobilenet_weights.h5 # Make classification model weights
-│   │   ├── final_make_mobilenet_weights.h5 # Final make classification weights
-│   │   └── make_mobilenet_summary.txt    # Model architecture summary
-│   ├── cmd-vmi.md              # Command line instructions for VMI
 │   ├── model_files_explanation.md # Explanation of model files and formats
 │   └── predict.py              # Script for prediction with trained model
 ├── VOI/                        # Vehicle Orientation Identification
