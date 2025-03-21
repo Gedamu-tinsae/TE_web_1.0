@@ -72,6 +72,16 @@
 ├── uploads/
 │   └── ... (uploaded images)
 ├── venv/
+│   └── ...
+├── VMI/                        # Vehicle Make and Model Identification
+│   ├── VMI_models/             # Directory for saved models
+│   │   ├── make_classes.json         # Class mapping for make classification
+│   │   ├── make_mobilenet_weights.h5 # Make classification model weights
+│   │   ├── final_make_mobilenet_weights.h5 # Final make classification weights
+│   │   └── make_mobilenet_summary.txt    # Model architecture summary
+│   ├── cmd-vmi.md              # Command line instructions for VMI
+│   ├── model_files_explanation.md # Explanation of model files and formats
+│   └── predict.py              # Script for prediction with trained model
 ├── VOI/                        # Vehicle Orientation Identification
 │   ├── predict_orientation.py
 │   └── cmd.md
