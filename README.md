@@ -1,4 +1,4 @@
-# Car Plate Extractor - TE_web_1.0
+# VITS(Vechile Identification and Tracking System) - TE_web_1.0
 
 A comprehensive vehicle recognition system that extracts license plates, identifies vehicle characteristics, and provides real-time detection capabilities using computer vision and deep learning.
 
