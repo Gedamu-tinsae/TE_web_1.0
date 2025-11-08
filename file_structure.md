@@ -1,3 +1,4 @@
+```
 # Car Plate Extractor Project Structure
 
 ## Frontend
@@ -98,3 +99,4 @@
 
 ## Root
 - `file_structure.md`
+```
